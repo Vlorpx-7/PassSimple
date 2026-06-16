@@ -41,6 +41,10 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+tmp_path_retention_policy = "failed"
+# Route tmp_path to a project-local dir — the system AppData\Temp\pytest-of-*
+# directory has Windows permission issues on this machine.
+addopts = ["--basetemp=.pytest_tmp"]
 
 [tool.setuptools.packages.find]
 where = ["."]
