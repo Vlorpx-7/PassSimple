@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.manifest
+*.spec.bak
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env
+
+# pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+*.lcov
+
+# MyPy / type checkers
+.mypy_cache/
+.dmypy.json
+
+# Distribution / packaging
+MANIFEST
+
+# PyInstaller output
+dist/
+build/passsimple/
+
+# Runtime data (vault lives in %LOCALAPPDATA%, but guard against accidents)
+data/
+vault.db
+*.db-shm
+*.db-wal
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+*.stackdump
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# JetBrains
+.idea/
+
+# Secrets / keys (extra safety net)
+*.key
+*.pem
+*.p12
+*.pfx

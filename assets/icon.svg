@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Rounded square background -->
+  <rect x="0" y="0" width="256" height="256" rx="56" ry="56" fill="#89b4fa"/>
+
+  <!-- Lock shackle (U-shape on top) -->
+  <path d="M 88 124
+           L 88 88
+           a 40 40 0 0 1 80 0
+           L 168 124"
+        fill="none"
+        stroke="#1e1e2e"
+        stroke-width="20"
+        stroke-linecap="round"/>
+
+  <!-- Lock body -->
+  <rect x="64" y="116" width="128" height="100" rx="16" ry="16" fill="#1e1e2e"/>
+
+  <!-- Keyhole: circle + slot, in accent color -->
+  <circle cx="128" cy="156" r="12" fill="#89b4fa"/>
+  <rect x="122" y="156" width="12" height="28" rx="3" ry="3" fill="#89b4fa"/>
+</svg>
