@@ -254,10 +254,6 @@ class EntryDialog(QDialog):
             QMessageBox.warning(self, "Eingabe fehlt", "Passwort darf nicht leer sein.")
             return
 
-        pw_text = self._password_edit.text()
-        print(f"[DEBUG accept] password widget text length: {len(pw_text)}")
-        print(f"[DEBUG accept] password starts with: {pw_text[:3]}...")
-
         # Read before clearing — password must not stay in the widget longer than needed.
         self._final_password = self._password_edit.text()
         self._password_edit.clear()

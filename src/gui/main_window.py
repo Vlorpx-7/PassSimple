@@ -379,8 +379,6 @@ class MainWindow(QMainWindow):
             return
         data = dialog.get_entry()
 
-        print(f"[DEBUG _on_new_entry] data.password length: {len(data.password)}")
-        print(f"[DEBUG _on_new_entry] data.title: {data.title!r}")     
         try:
             entry_id = self._vault.add_entry(
                 data.title,
@@ -396,7 +394,7 @@ class MainWindow(QMainWindow):
         self._refresh_entry_list(select_id=entry_id)
 
     def _on_edit_entry(self) -> None:
-        """Open the entry dialog pre-filled with the current entry and save changes."""
+        """Open the entry dialog pre-filled with the current entry and persist changes."""
         if self._current_entry_id is None:
             return
         try:
@@ -410,21 +408,18 @@ class MainWindow(QMainWindow):
         dialog = EntryDialog(entry=current, parent=self)
         if dialog.exec() != QDialog.Accepted:
             return
-        data = dialog.get_entry()
-        data.id = current.id
 
-        # Re-encrypt only when the password was actually changed in the dialog.
-        new_password = (
-            data.password
-            if data.password is not None and data.password != current.password
-            else None
-        )
+        data = dialog.get_entry()
+        # ID muss übernommen werden, sonst geht der UPDATE ins Leere
+        data.id = current.id
+        # Ciphertext aus dem Dialog ist b"" — wir reichen das Klartext-Passwort als
+        # new_password durch, damit update_entry es frisch verschlüsselt (mit neuer Nonce).
         try:
-            self._vault.update_entry(data, new_password=new_password)
+            self._vault.update_entry(data, new_password=data.password)
         except Exception as e:
             QMessageBox.critical(self, "Fehler", str(e))
             return
-        self._refresh_entry_list()
+        self._refresh_entry_list(select_id=current.id)
 
     def _on_delete_entry(self) -> None:
         """Ask for confirmation, then permanently delete the selected entry."""
