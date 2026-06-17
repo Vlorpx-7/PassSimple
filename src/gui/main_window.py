@@ -28,8 +28,7 @@ from PySide6.QtWidgets import (
 
 from src import crypto
 from src.db import Vault
-from src.gui.entry_dialog import EntryDialog
-from src.gui.settings_dialog import SettingsDialog
+from src.gui.dialogs import EntryDialog, SettingsDialog
 from src.models import Entry
 
 _ASSETS_DIR = Path(__file__).parent.parent.parent / "assets"

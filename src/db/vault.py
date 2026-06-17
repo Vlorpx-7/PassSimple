@@ -1,4 +1,4 @@
-"""SQLite-backed vault: schema management and CRUD for entries and tags."""
+"""SQLite-backed vault: CRUD for entries and tags."""
 
 from __future__ import annotations
 
@@ -8,37 +8,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from src import crypto
+from src.db.connection import open_connection
+from src.db.schema import _DDL, _SCHEMA_VERSION
 from src.models import Entry, Tag
-
-_SCHEMA_VERSION = 1
-
-# DDL for the initial schema. IF NOT EXISTS makes this safe to run on reopens.
-_DDL = """
-    CREATE TABLE IF NOT EXISTS vault_meta (
-        key   TEXT PRIMARY KEY,
-        value BLOB NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS entries (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        title       TEXT NOT NULL,
-        username    TEXT,
-        password_ct BLOB NOT NULL,
-        url         TEXT,
-        notes       TEXT,
-        created_at  TEXT NOT NULL,
-        updated_at  TEXT NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_entries_title ON entries (title);
-    CREATE TABLE IF NOT EXISTS tags (
-        id   INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT UNIQUE NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS entry_tags (
-        entry_id INTEGER REFERENCES entries (id) ON DELETE CASCADE,
-        tag_id   INTEGER REFERENCES tags   (id) ON DELETE CASCADE,
-        PRIMARY KEY (entry_id, tag_id)
-    );
-"""
 
 
 class Vault:
@@ -90,11 +62,7 @@ class Vault:
         db_path = path if path is not None else Vault.default_path()
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._master_key = master_key
-        conn = sqlite3.connect(str(db_path))
-        conn.row_factory = sqlite3.Row
-        # Foreign key enforcement is OFF by default in SQLite — must be set per connection.
-        conn.execute("PRAGMA foreign_keys = ON")
-        self._conn = conn
+        self._conn = open_connection(db_path)
         self._init_schema()
 
     def close(self) -> None:
