@@ -92,6 +92,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self._entry_list, 1)
 
         new_btn = QPushButton("+ Neuer Eintrag")
+        new_btn.setObjectName("primary")
         new_btn.clicked.connect(self._on_new_entry)
         layout.addWidget(new_btn)
 
@@ -168,6 +169,7 @@ class MainWindow(QMainWindow):
         self._edit_btn = QPushButton("Bearbeiten")
         self._edit_btn.clicked.connect(self._on_edit_entry)
         self._delete_btn = QPushButton("Loeschen")
+        self._delete_btn.setObjectName("danger")
         self._delete_btn.clicked.connect(self._on_delete_entry)
         hl.addWidget(self._edit_btn)
         hl.addWidget(self._delete_btn)
