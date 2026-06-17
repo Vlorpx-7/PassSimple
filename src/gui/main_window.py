@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt, QTimer
@@ -16,6 +17,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QPushButton,
     QSplitter,
@@ -24,8 +26,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from src import crypto
 from src.db import Vault
 from src.gui.entry_dialog import EntryDialog
+from src.gui.settings_dialog import SettingsDialog
 from src.models import Entry
 
 _ASSETS_DIR = Path(__file__).parent.parent.parent / "assets"
@@ -63,6 +67,8 @@ class MainWindow(QMainWindow):
             self.setWindowIcon(QIcon(str(icon_path)))
         self.setMinimumSize(1000, 600)
 
+        self._build_menu_bar()
+
         splitter = QSplitter(Qt.Horizontal)
         self.setCentralWidget(splitter)
 
@@ -73,6 +79,18 @@ class MainWindow(QMainWindow):
         splitter.setStretchFactor(1, 1)
 
         self.statusBar().showMessage("Bereit")
+
+    def _build_menu_bar(self) -> None:
+        """Add a 'Datei' menu with Settings and Quit actions."""
+        file_menu: QMenu = self.menuBar().addMenu("Datei")
+
+        settings_action = file_menu.addAction("Einstellungen…")
+        settings_action.triggered.connect(self._on_settings)
+
+        file_menu.addSeparator()
+
+        quit_action = file_menu.addAction("Beenden")
+        quit_action.triggered.connect(QApplication.quit)
 
     def _build_sidebar(self) -> QWidget:
         """Build the left sidebar: search field, entry list, new-entry button."""
@@ -350,7 +368,7 @@ class MainWindow(QMainWindow):
     def _on_entry_selected(
         self,
         current: QListWidgetItem | None,
-        previous: QListWidgetItem | None,
+        _previous: QListWidgetItem | None,
     ) -> None:
         """Load the selected entry into the detail pane, decrypting its password."""
         if current is None:
@@ -443,3 +461,92 @@ class MainWindow(QMainWindow):
             return
         self._current_entry_id = None
         self._refresh_entry_list()
+
+    # -----------------------------------------------------------------------
+    # Settings dialog + signal handlers
+    # -----------------------------------------------------------------------
+
+    def _on_settings(self) -> None:
+        """Open the settings dialog and wire up its signals."""
+        dlg = SettingsDialog(parent=self)
+        dlg.entries_imported.connect(self._on_entries_imported)
+        dlg.vault_reset_requested.connect(self._on_vault_reset_requested)
+        dlg.exec()
+
+    def _on_entries_imported(self, entries: list) -> None:
+        """Encrypt and persist every entry emitted by SettingsDialog.entries_imported."""
+        added = 0
+        failed = 0
+        for entry in entries:
+            try:
+                self._vault.add_entry(
+                    entry.title,
+                    entry.password or "",
+                    username=entry.username or None,
+                    url=entry.url or None,
+                    notes=entry.notes,
+                    tag_names=None,
+                )
+                added += 1
+            except Exception:
+                failed += 1
+        self._refresh_entry_list()
+        if failed:
+            self.statusBar().showMessage(f"{added} importiert, {failed} Fehler.")
+        else:
+            self.statusBar().showMessage(f"{added} Einträge importiert.")
+
+    def _on_vault_reset_requested(self) -> None:
+        """Delete all entries and rotate the DPAPI-protected master key.
+
+        The Vault class has no built-in key-rotation API, so the sequence is:
+        1. Delete all entries via the public CRUD methods.
+        2. Generate + DPAPI-protect a new master key.
+        3. Close the vault, update vault_meta via a raw sqlite3 connection,
+           then reopen with the new key.
+        """
+        # 1. Delete every entry through the public API.
+        try:
+            for entry in self._vault.list_entries():
+                self._vault.delete_entry(entry.id)
+        except Exception as e:
+            QMessageBox.critical(self, "Fehler", str(e))
+            return
+
+        # 2. Generate and protect a new master key.
+        try:
+            new_key = crypto.generate_master_key()
+            new_blob = crypto.protect_master_key(new_key)
+        except Exception as e:
+            QMessageBox.critical(self, "Fehler", str(e))
+            return
+
+        # 3. Persist the new DPAPI blob.  We close the vault first so both
+        #    connections don't hold the WAL file at the same time.
+        db_path = Vault.default_path()
+        self._vault.close()
+        try:
+            conn = sqlite3.connect(str(db_path))
+            try:
+                conn.execute(
+                    "UPDATE vault_meta SET value = ? WHERE key = ?",
+                    (new_blob, "dpapi_master_key"),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+        except Exception as e:
+            QMessageBox.critical(self, "Fehler", str(e))
+            return
+
+        # 4. Reopen the vault with the rotated key.
+        try:
+            self._vault.open(new_key, path=db_path)
+        except Exception as e:
+            QMessageBox.critical(self, "Fehler", str(e))
+            return
+
+        self._master_key = new_key
+        self._clear_detail()
+        self._refresh_entry_list()
+        self.statusBar().showMessage("Vault zurückgesetzt — neuer DPAPI-Schlüssel aktiv.")
