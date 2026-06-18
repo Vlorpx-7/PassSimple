@@ -9,7 +9,7 @@ from pathlib import Path
 
 from src import crypto
 from src.db.connection import open_connection
-from src.db.schema import _DDL, _SCHEMA_VERSION
+from src.db.schema import _DDL, _MIGRATIONS, _SCHEMA_VERSION
 from src.models import Entry, Tag
 
 
@@ -56,8 +56,8 @@ class Vault:
     def open(self, master_key: bytes, path: Path | None = None) -> None:
         """Open (and if necessary create) the vault database.
 
-        Creates parent directories automatically. Sets PRAGMA foreign_keys = ON
-        and initialises the schema on first use.
+        Creates parent directories automatically. Sets PRAGMA foreign_keys = ON,
+        initialises the schema on first use, and applies any pending migrations.
         """
         db_path = path if path is not None else Vault.default_path()
         db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -89,16 +89,42 @@ class Vault:
         return self._master_key
 
     def _init_schema(self) -> None:
-        """Create tables/indexes and record schema_version on first use."""
+        """Create tables/indexes, insert schema_version on first open, and run migrations.
+
+        Migration strategy:
+        - executescript(_DDL) is idempotent (IF NOT EXISTS on every statement).
+          For fresh installs it creates tables at the current schema version.
+          For existing DBs the CREATE TABLE statements are no-ops, so new columns
+          are NOT picked up from the DDL — they come via _MIGRATIONS instead.
+        - The schema_version is read after the INSERT OR IGNORE so we know the
+          version that was already on disk.
+        - Any version gap is closed by executing the corresponding _MIGRATIONS
+          entries in order, then updating the stored schema_version.
+        """
         conn = self._c()
         # executescript issues an implicit COMMIT before running — that's fine here.
         conn.executescript(_DDL)
-        # Insert schema_version only on first open (INSERT OR IGNORE avoids overwriting).
+        # Insert schema_version only on first open; OR IGNORE avoids overwriting.
         conn.execute(
             "INSERT OR IGNORE INTO vault_meta (key, value) VALUES (?, ?)",
             ("schema_version", str(_SCHEMA_VERSION).encode()),
         )
         conn.commit()
+
+        row = conn.execute(
+            "SELECT value FROM vault_meta WHERE key = ?", ("schema_version",)
+        ).fetchone()
+        current_version = int(row["value"])
+
+        if current_version < _SCHEMA_VERSION:
+            for version in range(current_version + 1, _SCHEMA_VERSION + 1):
+                # ALTER TABLE runs fine inside a transaction in SQLite.
+                conn.execute(_MIGRATIONS[version])
+            conn.execute(
+                "UPDATE vault_meta SET value = ? WHERE key = ?",
+                (str(_SCHEMA_VERSION).encode(), "schema_version"),
+            )
+            conn.commit()
 
     @staticmethod
     def _now() -> str:
@@ -146,6 +172,7 @@ class Vault:
             created_at=row["created_at"],
             updated_at=row["updated_at"],
             tags=self._load_tags(row["id"]),
+            is_favorite=bool(row["is_favorite"]),
             password=password,
         )
 
@@ -162,6 +189,7 @@ class Vault:
         url: str | None = None,
         notes: str | None = None,
         tag_names: list[str] | None = None,
+        is_favorite: bool = False,
     ) -> int:
         """Encrypt password and insert a new entry. Returns the new row id."""
         conn = self._c()
@@ -169,10 +197,11 @@ class Vault:
         password_ct = crypto.encrypt(password, self._key())
         cur = conn.execute(
             """
-            INSERT INTO entries (title, username, password_ct, url, notes, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO entries
+                (title, username, password_ct, url, notes, created_at, updated_at, is_favorite)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (title, username, password_ct, url, notes, now, now),
+            (title, username, password_ct, url, notes, now, now, int(is_favorite)),
         )
         entry_id = cur.lastrowid
         if tag_names:
@@ -207,10 +236,20 @@ class Vault:
         conn.execute(
             """
             UPDATE entries
-            SET title = ?, username = ?, password_ct = ?, url = ?, notes = ?, updated_at = ?
+            SET title = ?, username = ?, password_ct = ?, url = ?, notes = ?,
+                updated_at = ?, is_favorite = ?
             WHERE id = ?
             """,
-            (entry.title, entry.username, password_ct, entry.url, entry.notes, self._now(), entry.id),
+            (
+                entry.title,
+                entry.username,
+                password_ct,
+                entry.url,
+                entry.notes,
+                self._now(),
+                int(entry.is_favorite),
+                entry.id,
+            ),
         )
         conn.execute("DELETE FROM entry_tags WHERE entry_id = ?", (entry.id,))
         for tag in entry.tags:
@@ -231,6 +270,22 @@ class Vault:
         """Return all entries ordered by title. Passwords are NOT decrypted."""
         rows = self._c().execute("SELECT * FROM entries ORDER BY title").fetchall()
         return [self._row_to_entry(r, decrypt=False) for r in rows]
+
+    def list_favorites(self) -> list[Entry]:
+        """Return all favorite entries ordered by title. Passwords are NOT decrypted."""
+        rows = self._c().execute(
+            "SELECT * FROM entries WHERE is_favorite = 1 ORDER BY title"
+        ).fetchall()
+        return [self._row_to_entry(r, decrypt=False) for r in rows]
+
+    def set_favorite(self, entry_id: int, is_favorite: bool) -> None:
+        """Set or clear the favorite flag for a single entry."""
+        conn = self._c()
+        conn.execute(
+            "UPDATE entries SET is_favorite = ? WHERE id = ?",
+            (int(is_favorite), entry_id),
+        )
+        conn.commit()
 
     def search_entries(self, query: str) -> list[Entry]:
         """Case-insensitive substring search over title and username.

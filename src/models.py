@@ -32,6 +32,7 @@ class Entry:
     created_at: str  # ISO 8601
     updated_at: str  # ISO 8601
     tags: list[Tag] = field(default_factory=list)
+    is_favorite: bool = False
     # Decrypted password — populated by Vault.get_entry, None in list/search results.
     # compare=False: equality checks password_ct, not this derived field.
     password: str | None = field(default=None, compare=False)

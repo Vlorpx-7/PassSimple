@@ -1,8 +1,10 @@
-"""Database schema constants: DDL and schema version."""
+"""Database schema constants: DDL, schema version, and migrations."""
 
-_SCHEMA_VERSION: int = 1
+_SCHEMA_VERSION: int = 2
 
-# DDL for the initial schema. IF NOT EXISTS makes this safe to run on reopens.
+# DDL for the current schema. IF NOT EXISTS makes this safe to run on reopens.
+# Existing DBs upgraded from V1 get is_favorite via _MIGRATIONS, not this DDL
+# (CREATE TABLE IF NOT EXISTS skips the statement when the table already exists).
 _DDL: str = """
     CREATE TABLE IF NOT EXISTS vault_meta (
         key   TEXT PRIMARY KEY,
@@ -16,7 +18,8 @@ _DDL: str = """
         url         TEXT,
         notes       TEXT,
         created_at  TEXT NOT NULL,
-        updated_at  TEXT NOT NULL
+        updated_at  TEXT NOT NULL,
+        is_favorite INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS idx_entries_title ON entries (title);
     CREATE TABLE IF NOT EXISTS tags (
@@ -29,3 +32,8 @@ _DDL: str = """
         PRIMARY KEY (entry_id, tag_id)
     );
 """
+
+# One entry per schema version bump; each value is a single valid SQLite statement.
+_MIGRATIONS: dict[int, str] = {
+    2: "ALTER TABLE entries ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0;",
+}

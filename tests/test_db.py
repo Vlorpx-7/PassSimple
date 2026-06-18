@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from src.crypto import generate_master_key
-from src.db import Vault
+from src.db import Vault, _SCHEMA_VERSION
 from src.models import Entry, Tag
 
 
@@ -44,12 +44,12 @@ def test_schema_tables_exist(vault: Vault) -> None:
 
 
 def test_schema_version_written_on_first_open(vault: Vault) -> None:
-    """schema_version must be 1 in vault_meta after the first open()."""
+    """schema_version must equal _SCHEMA_VERSION in vault_meta after the first open()."""
     row = vault._conn.execute(
         "SELECT value FROM vault_meta WHERE key = ?", ("schema_version",)
     ).fetchone()
     assert row is not None
-    assert int(row["value"]) == 1
+    assert int(row["value"]) == _SCHEMA_VERSION
 
 
 def test_schema_version_not_duplicated_on_reopen(tmp_path: Path) -> None:
@@ -296,3 +296,108 @@ def test_foreign_key_violation_raises(tmp_path: Path) -> None:
         raw.execute("INSERT INTO entry_tags (entry_id, tag_id) VALUES (?, ?)", (9999, 9999))
         raw.commit()
     raw.close()
+
+
+# ---------------------------------------------------------------------------
+# Schema migration
+# ---------------------------------------------------------------------------
+
+
+def test_schema_migration_from_v1(tmp_path: Path) -> None:
+    """Vault.open() must migrate a V1 DB (no is_favorite column) to the current version.
+
+    Simulates a pre-existing database created before schema V2 by constructing
+    the V1 tables manually, then opening via Vault which must apply migrations
+    transparently.
+    """
+    db = tmp_path / "v1.db"
+
+    # Build a V1 DB by hand — no is_favorite column, schema_version = 1.
+    conn = sqlite3.connect(str(db))
+    conn.executescript("""
+        CREATE TABLE vault_meta (key TEXT PRIMARY KEY, value BLOB NOT NULL);
+        CREATE TABLE entries (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            title       TEXT NOT NULL,
+            username    TEXT,
+            password_ct BLOB NOT NULL,
+            url         TEXT,
+            notes       TEXT,
+            created_at  TEXT NOT NULL,
+            updated_at  TEXT NOT NULL
+        );
+        CREATE TABLE tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL);
+        CREATE TABLE entry_tags (
+            entry_id INTEGER REFERENCES entries(id) ON DELETE CASCADE,
+            tag_id   INTEGER REFERENCES tags(id) ON DELETE CASCADE,
+            PRIMARY KEY (entry_id, tag_id)
+        );
+        INSERT INTO vault_meta (key, value) VALUES ('schema_version', '1');
+    """)
+    conn.close()
+
+    # Open via Vault — should run the migration without errors.
+    key = generate_master_key()
+    v = Vault()
+    v.open(key, path=db)
+
+    # is_favorite column must now exist.
+    col_names = {
+        r["name"]
+        for r in v._conn.execute("PRAGMA table_info(entries)").fetchall()
+    }
+    assert "is_favorite" in col_names
+
+    # schema_version must be bumped to the current version.
+    row = v._conn.execute(
+        "SELECT value FROM vault_meta WHERE key = ?", ("schema_version",)
+    ).fetchone()
+    assert int(row["value"]) == _SCHEMA_VERSION
+
+    v.close()
+
+
+# ---------------------------------------------------------------------------
+# Favorites
+# ---------------------------------------------------------------------------
+
+
+def test_add_entry_with_favorite(vault: Vault) -> None:
+    """add_entry with is_favorite=True must persist and round-trip via get_entry."""
+    eid = vault.add_entry("Bank", "secret", is_favorite=True)
+    entry = vault.get_entry(eid)
+    assert entry is not None
+    assert entry.is_favorite is True
+
+
+def test_set_favorite_toggle(vault: Vault) -> None:
+    """set_favorite must toggle the flag and persist both states."""
+    eid = vault.add_entry("Site", "pw")
+    assert vault.get_entry(eid).is_favorite is False
+
+    vault.set_favorite(eid, True)
+    assert vault.get_entry(eid).is_favorite is True
+
+    vault.set_favorite(eid, False)
+    assert vault.get_entry(eid).is_favorite is False
+
+
+def test_list_favorites_returns_only_favorites(vault: Vault) -> None:
+    """list_favorites must return exactly the entries with is_favorite=True."""
+    vault.add_entry("Alpha", "pw", is_favorite=True)
+    vault.add_entry("Beta", "pw", is_favorite=True)
+    vault.add_entry("Gamma", "pw", is_favorite=False)
+
+    favs = vault.list_favorites()
+    assert len(favs) == 2
+    assert all(e.is_favorite for e in favs)
+    assert {e.title for e in favs} == {"Alpha", "Beta"}
+
+
+def test_update_entry_persists_favorite(vault: Vault) -> None:
+    """update_entry must write the is_favorite flag from the Entry object."""
+    eid = vault.add_entry("Service", "pw")
+    entry = vault.get_entry(eid)
+    entry.is_favorite = True
+    vault.update_entry(entry)
+    assert vault.get_entry(eid).is_favorite is True
