@@ -5,12 +5,14 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from PySide6.QtCore import QTimer
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from src.bootstrap import initialize_vault_schema_if_needed, load_or_create_master_key
 from src.db import Vault
 from src.gui.main_window import MainWindow
+from src.gui.splash import create_splash
 
 _ASSETS_DIR = Path(__file__).parent.parent / "assets"
 
@@ -26,6 +28,11 @@ def main() -> int:
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))
 
+    # Show splash before any vault work so the user sees something immediately.
+    splash = create_splash()
+    splash.show()
+    app.processEvents()
+
     db_path = Vault.default_path()
 
     try:
@@ -36,6 +43,7 @@ def main() -> int:
         # because the vault was created under a different Windows account.
         # The key is then unrecoverable by design: DPAPI user-scope binding
         # means that without the original account, the data is permanently sealed.
+        splash.close()
         QMessageBox.critical(
             None,
             "Fehler",
@@ -48,11 +56,16 @@ def main() -> int:
     try:
         vault.open(master_key, path=db_path)
     except Exception as e:
+        splash.close()
         QMessageBox.critical(None, "Fehler", str(e))
         return 1
 
     window = MainWindow(vault, master_key)
-    window.show()
+
+    # 800 ms minimum display time prevents the splash from flickering away
+    # instantly when the vault is already decrypted (fast path).
+    # splash.finish(window) defers the close until the main window is fully painted.
+    QTimer.singleShot(800, lambda: (splash.finish(window), window.show()))
 
     exit_code = app.exec()
     vault.close()
