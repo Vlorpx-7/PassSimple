@@ -342,3 +342,68 @@ QToolTip {
     border-radius: 6px;
     padding: 4px 8px;
 }
+
+/* -----------------------------------------------------------------------
+   Navigation sidebar
+   ----------------------------------------------------------------------- */
+QWidget#navSidebar {
+    background-color: #181825;
+}
+
+QWidget#entryListPane {
+    /* no border — separator is a physical QFrame#columnSeparator */
+}
+
+QFrame#columnSeparator {
+    background-color: #45475a;
+    min-width: 1px;
+    max-width: 1px;
+    border: none;
+}
+
+QPushButton#navItem {
+    text-align: left;
+    padding: 8px 12px;
+    border-radius: 6px;
+    color: #a6adc8;
+    background-color: transparent;
+    border: none;
+    min-width: 0;
+}
+
+QPushButton#navItem:hover {
+    background-color: #313244;
+}
+
+QPushButton#navItem:checked {
+    background-color: #89b4fa;
+    color: #1e1e2e;
+    font-weight: bold;
+}
+
+QLabel#navSectionHeader {
+    color: #6c7086;
+    font-size: 10pt;
+    padding: 8px 12px 4px;
+    background-color: transparent;
+}
+
+/* -----------------------------------------------------------------------
+   Star / favorite toggle
+   ----------------------------------------------------------------------- */
+QPushButton#starToggle {
+    font-size: 20px;
+    color: #6c7086;
+    background-color: transparent;
+    border: none;
+    padding: 4px;
+    min-width: 0;
+}
+
+QPushButton#starToggle:checked {
+    color: #f9e2af;
+}
+
+QPushButton#starToggle:disabled {
+    color: #313244;
+}

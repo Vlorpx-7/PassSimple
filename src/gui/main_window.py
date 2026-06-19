@@ -1,35 +1,29 @@
-"""Main application window: sidebar (search + entry list) + detail pane."""
+"""Main application window: 3-column layout (NavSidebar / EntryListPane / EntryDetailPane)."""
 
 from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
 
-from PySide6.QtCore import QSize, Qt, QTimer
-from PySide6.QtGui import QIcon
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import (
-    QApplication,
     QDialog,
-    QFormLayout,
+    QFrame,
     QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QListWidget,
-    QListWidgetItem,
     QMainWindow,
-    QMenu,
     QMessageBox,
-    QPushButton,
-    QSplitter,
-    QTextEdit,
-    QVBoxLayout,
+    QSizePolicy,
     QWidget,
 )
 
 from src import crypto
 from src.db import Vault
+from src.gui.csv_import_flow import run_csv_import
 from src.gui.dialogs import EntryDialog, SettingsDialog
-from src.models import Entry
+from src.gui.widgets.entry_detail_pane import EntryDetailPane
+from src.gui.widgets.entry_list_pane import EntryListPane
+from src.gui.widgets.nav_sidebar import NavSidebar
 
 _ASSETS_DIR = Path(__file__).parent.parent.parent / "assets"
 
@@ -46,152 +40,67 @@ class MainWindow(QMainWindow):
         super().__init__()
         self._vault = vault
         self._master_key = master_key  # private — NOT a Qt property
+        self._current_filter: str = "all"
         self._current_entry_id: int | None = None
-        # Stored as instance variable so the GC cannot collect it before it fires.
-        self._clipboard_timer: QTimer | None = None
 
         self._init_ui()
         self._load_stylesheet()
-        self._refresh_entry_list()
+        # Load all entries into the list on startup.
+        self._load_current_filter()
 
     # -----------------------------------------------------------------------
     # UI construction
     # -----------------------------------------------------------------------
 
     def _init_ui(self) -> None:
-        """Build and configure all widgets and layouts."""
-        self.setWindowTitle("PassSimple")
-        icon_path = _ASSETS_DIR / "icon.ico"
-        if icon_path.exists():
-            self.setWindowIcon(QIcon(str(icon_path)))
-        self.setMinimumSize(1000, 600)
+        """Build the 3-column layout and wire all signals."""
+        self.setWindowTitle("")
+        # Clear the per-window icon so the title bar stays clean.
+        # The app-wide icon (set via QApplication.setWindowIcon in app.py)
+        # continues to appear in the taskbar.
+        transparent_pixmap = QPixmap(1, 1)
+        transparent_pixmap.fill(Qt.GlobalColor.transparent)
+        self.setWindowIcon(QIcon(transparent_pixmap))
+        self.setMinimumSize(1100, 650)
 
-        self._build_menu_bar()
+        central = QWidget()
+        self.setCentralWidget(central)
 
-        splitter = QSplitter(Qt.Horizontal)
-        self.setCentralWidget(splitter)
+        layout = QHBoxLayout(central)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
-        splitter.addWidget(self._build_sidebar())
-        splitter.addWidget(self._build_detail_pane())
-        splitter.setSizes([280, 720])
-        splitter.setStretchFactor(0, 0)
-        splitter.setStretchFactor(1, 1)
+        self._nav = NavSidebar(self)
+        self._list_pane = EntryListPane(self)
+        self._detail_pane = EntryDetailPane(self)
 
+        layout.addWidget(self._nav)
+        sep1 = QFrame()
+        sep1.setObjectName("columnSeparator")
+        sep1.setFrameShape(QFrame.Shape.NoFrame)
+        sep1.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+        layout.addWidget(sep1)
+        layout.addWidget(self._list_pane)
+        sep2 = QFrame()
+        sep2.setObjectName("columnSeparator")
+        sep2.setFrameShape(QFrame.Shape.NoFrame)
+        sep2.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+        layout.addWidget(sep2)
+        layout.addWidget(self._detail_pane, 1)
+
+        self._wire_signals()
         self.statusBar().showMessage("Bereit")
 
-    def _build_menu_bar(self) -> None:
-        """Add a 'Datei' menu with Settings and Quit actions."""
-        file_menu: QMenu = self.menuBar().addMenu("Datei")
-
-        settings_action = file_menu.addAction("Einstellungen…")
-        settings_action.triggered.connect(self._on_settings)
-
-        file_menu.addSeparator()
-
-        quit_action = file_menu.addAction("Beenden")
-        quit_action.triggered.connect(QApplication.quit)
-
-    def _build_sidebar(self) -> QWidget:
-        """Build the left sidebar: search field, entry list, new-entry button."""
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(6)
-
-        self._search_edit = QLineEdit()
-        self._search_edit.setPlaceholderText("Suchen...")
-        self._search_edit.textChanged.connect(self._on_search_changed)
-        layout.addWidget(self._search_edit)
-
-        self._entry_list = QListWidget()
-        self._entry_list.setSpacing(1)
-        self._entry_list.currentItemChanged.connect(self._on_entry_selected)
-        layout.addWidget(self._entry_list, 1)
-
-        new_btn = QPushButton("+ Neuer Eintrag")
-        new_btn.setObjectName("primary")
-        new_btn.clicked.connect(self._on_new_entry)
-        layout.addWidget(new_btn)
-
-        return widget
-
-    def _build_detail_pane(self) -> QWidget:
-        """Build the right pane: read-only fields, password controls, action buttons."""
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(10)
-
-        form = QFormLayout()
-        form.setSpacing(8)
-
-        self._title_edit = QLineEdit()
-        self._title_edit.setReadOnly(True)
-        form.addRow("Titel:", self._title_edit)
-
-        self._url_edit = QLineEdit()
-        self._url_edit.setReadOnly(True)
-        form.addRow("URL:", self._url_edit)
-
-        self._username_edit = QLineEdit()
-        self._username_edit.setReadOnly(True)
-        form.addRow("Username:", self._username_edit)
-
-        form.addRow("Passwort:", self._build_password_row())
-
-        self._notes_edit = QTextEdit()
-        self._notes_edit.setReadOnly(True)
-        self._notes_edit.setMaximumHeight(100)
-        form.addRow("Notizen:", self._notes_edit)
-
-        self._tags_label = QLabel()
-        self._tags_label.setWordWrap(True)
-        form.addRow("Tags:", self._tags_label)
-
-        layout.addLayout(form)
-        layout.addLayout(self._build_action_buttons())
-        layout.addStretch()
-
-        self._set_detail_enabled(False)
-        return widget
-
-    def _build_password_row(self) -> QWidget:
-        """Build the password field with eye-toggle and copy-to-clipboard button."""
-        widget = QWidget()
-        hl = QHBoxLayout(widget)
-        hl.setContentsMargins(0, 0, 0, 0)
-        hl.setSpacing(4)
-
-        self._password_edit = QLineEdit()
-        self._password_edit.setReadOnly(True)
-        self._password_edit.setEchoMode(QLineEdit.Password)
-        hl.addWidget(self._password_edit, 1)
-
-        self._eye_btn = QPushButton("Anzeigen")
-        self._eye_btn.setCheckable(True)
-        self._eye_btn.setFixedWidth(80)
-        self._eye_btn.toggled.connect(self._on_eye_toggled)
-        hl.addWidget(self._eye_btn)
-
-        self._copy_btn = QPushButton("Kopieren")
-        self._copy_btn.setFixedWidth(80)
-        self._copy_btn.clicked.connect(self._on_copy_password)
-        hl.addWidget(self._copy_btn)
-
-        return widget
-
-    def _build_action_buttons(self) -> QHBoxLayout:
-        """Build the Bearbeiten and Loeschen action buttons."""
-        hl = QHBoxLayout()
-        self._edit_btn = QPushButton("Bearbeiten")
-        self._edit_btn.clicked.connect(self._on_edit_entry)
-        self._delete_btn = QPushButton("Loeschen")
-        self._delete_btn.setObjectName("danger")
-        self._delete_btn.clicked.connect(self._on_delete_entry)
-        hl.addWidget(self._edit_btn)
-        hl.addWidget(self._delete_btn)
-        hl.addStretch()
-        return hl
+    def _wire_signals(self) -> None:
+        """Connect all inter-widget signals."""
+        self._nav.nav_changed.connect(self._on_nav_changed)
+        self._list_pane.entry_selected.connect(self._on_entry_selected)
+        self._list_pane.search_changed.connect(self._on_search_changed)
+        self._detail_pane.new_entry_requested.connect(self._on_new_entry)
+        self._detail_pane.edit_entry_requested.connect(self._on_edit_entry)
+        self._detail_pane.delete_entry_requested.connect(self._on_delete_entry)
+        self._detail_pane.favorite_toggled.connect(self._on_favorite_toggled)
+        self._detail_pane.status_message.connect(self.statusBar().showMessage)
 
     # -----------------------------------------------------------------------
     # Stylesheet
@@ -205,190 +114,149 @@ class MainWindow(QMainWindow):
         except OSError:
             pass
 
+    def showEvent(self, event: object) -> None:
+        """Apply the dark title bar once the native window handle exists."""
+        super().showEvent(event)
+        self._apply_dark_title_bar()
+
+    def _apply_dark_title_bar(self) -> None:
+        """Apply Windows 11 immersive dark mode to the title bar via DWM API.
+
+        On non-Windows platforms ctypes.windll raises AttributeError, which the
+        broad except catches — no separate platform guard needed.
+        """
+        try:
+            import ctypes
+            hwnd = int(self.winId())
+
+            DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+            value = ctypes.c_int(1)
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd,
+                DWMWA_USE_IMMERSIVE_DARK_MODE,
+                ctypes.byref(value),
+                ctypes.sizeof(value),
+            )
+
+            # Caption background #1e1e2e and text #cdd6f4 in BGR (COLORREF).
+            # DWMWA_CAPTION_COLOR / DWMWA_TEXT_COLOR require Windows 11 Build 22000+;
+            # on older builds DwmSetWindowAttribute returns a non-zero HRESULT which
+            # we silently ignore — the immersive dark mode above still applies.
+            DWMWA_CAPTION_COLOR = 35
+            DWMWA_TEXT_COLOR = 36
+            caption_color = ctypes.c_uint(0x2E1E1E)   # #1e1e2e → BGR
+            text_color = ctypes.c_uint(0xF4D6CD)       # #cdd6f4 → BGR
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd, DWMWA_CAPTION_COLOR,
+                ctypes.byref(caption_color), ctypes.sizeof(caption_color),
+            )
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd, DWMWA_TEXT_COLOR,
+                ctypes.byref(text_color), ctypes.sizeof(text_color),
+            )
+        except Exception:
+            pass
+
     # -----------------------------------------------------------------------
-    # Entry list
+    # Filter / list management
     # -----------------------------------------------------------------------
 
-    def _refresh_entry_list(self, select_id: int | None = None) -> None:
-        """Reload the full entry list from the vault and restore the selection."""
+    def _load_current_filter(self, select_id: int | None = None) -> None:
+        """Reload entries according to the active filter and restore the selection.
+
+        If select_id is given it overrides _current_entry_id as the target.
+        If the target entry is not in the filtered list the detail pane is cleared.
+        """
         saved_id = select_id if select_id is not None else self._current_entry_id
         try:
-            entries = self._vault.list_entries()
+            if self._current_filter == "favorites":
+                entries = self._vault.list_favorites()
+            else:
+                entries = self._vault.list_entries()
         except Exception as e:
             QMessageBox.critical(self, "Fehler", str(e))
             return
-        self._populate_entry_list(entries)
-        self._restore_selection(saved_id)
 
-    def _populate_entry_list(self, entries: list[Entry]) -> None:
-        """Fill the QListWidget with entry items.
+        self._list_pane.set_entries(entries)
 
-        Signals are blocked during the rebuild so intermediate currentItemChanged
-        emissions don't trigger vault calls while the list is in a partial state.
-        """
-        self._entry_list.blockSignals(True)
-        self._entry_list.clear()
-        for entry in entries:
-            item = QListWidgetItem(self._entry_list)
-            item.setData(Qt.UserRole, entry.id)
-            item.setSizeHint(QSize(0, 52))
-
-            container = QWidget()
-            vl = QVBoxLayout(container)
-            vl.setContentsMargins(8, 4, 8, 4)
-            vl.setSpacing(0)
-            vl.addWidget(QLabel(entry.title))
-            sub = QLabel(entry.username or "")
-            sub.setObjectName("entrySubtitle")
-            vl.addWidget(sub)
-            self._entry_list.setItemWidget(item, container)
-
-        self._entry_list.blockSignals(False)
-
-    def _restore_selection(self, entry_id: int | None) -> None:
-        """Re-select an entry by id after a list rebuild; clear the pane if not found."""
-        if entry_id is not None:
-            for i in range(self._entry_list.count()):
-                item = self._entry_list.item(i)
-                if item and item.data(Qt.UserRole) == entry_id:
-                    self._entry_list.setCurrentItem(item)
-                    return
-        self._clear_detail()
-
-    # -----------------------------------------------------------------------
-    # Detail pane helpers
-    # -----------------------------------------------------------------------
-
-    def _load_entry_into_detail(self, entry: Entry) -> None:
-        """Populate the detail pane with an entry's decrypted data."""
-        self._current_entry_id = entry.id
-        self._title_edit.setText(entry.title)
-        self._url_edit.setText(entry.url or "")
-        self._username_edit.setText(entry.username or "")
-        self._password_edit.setText(entry.password or "")
-        self._notes_edit.setPlainText(entry.notes or "")
-        self._tags_label.setText(", ".join(t.name for t in entry.tags))
-
-        # Reset the eye toggle whenever a new entry is loaded.
-        self._eye_btn.blockSignals(True)
-        self._eye_btn.setChecked(False)
-        self._eye_btn.setText("Anzeigen")
-        self._eye_btn.blockSignals(False)
-        self._password_edit.setEchoMode(QLineEdit.Password)
-
-        self._set_detail_enabled(True)
-
-    def _clear_detail(self) -> None:
-        """Clear and disable the detail pane."""
-        self._current_entry_id = None
-        self._title_edit.clear()
-        self._url_edit.clear()
-        self._username_edit.clear()
-        self._password_edit.clear()
-        self._notes_edit.clear()
-        self._tags_label.clear()
-        self._set_detail_enabled(False)
-
-    def _set_detail_enabled(self, enabled: bool) -> None:
-        """Enable or disable every interactive widget in the detail pane."""
-        for widget in (
-            self._url_edit,
-            self._username_edit,
-            self._password_edit,
-            self._eye_btn,
-            self._copy_btn,
-            self._notes_edit,
-            self._tags_label,
-            self._edit_btn,
-            self._delete_btn,
-        ):
-            widget.setEnabled(enabled)
-
-    # -----------------------------------------------------------------------
-    # Password field controls
-    # -----------------------------------------------------------------------
-
-    def _on_eye_toggled(self, checked: bool) -> None:
-        """Toggle the password field between masked and visible mode."""
-        if checked:
-            self._password_edit.setEchoMode(QLineEdit.Normal)
-            self._eye_btn.setText("Verbergen")
+        if saved_id is not None:
+            found = self._list_pane.select_entry(saved_id)
+            if not found:
+                # Entry is not in the filtered view — clear the detail pane.
+                self._detail_pane.clear()
+                self._current_entry_id = None
         else:
-            self._password_edit.setEchoMode(QLineEdit.Password)
-            self._eye_btn.setText("Anzeigen")
-
-    def _on_copy_password(self) -> None:
-        """Copy the password to the clipboard and schedule a 30-second auto-clear.
-
-        The QTimer is stored as self._clipboard_timer (with self as Qt parent) to
-        prevent Python's GC from collecting it before it fires.  A new copy
-        cancels any still-running timer from a previous copy.
-        """
-        password_text = self._password_edit.text()
-        if not password_text:
-            return
-
-        QApplication.clipboard().setText(password_text)
-        self.statusBar().showMessage("In Zwischenablage kopiert — wird in 30 s geloescht")
-
-        # Cancel any running timer before creating a fresh one.
-        if self._clipboard_timer is not None:
-            self._clipboard_timer.stop()
-
-        # parent=self keeps the timer alive in Qt's object tree as well.
-        self._clipboard_timer = QTimer(self)
-        self._clipboard_timer.setSingleShot(True)
-        self._clipboard_timer.timeout.connect(self._clear_clipboard)
-        self._clipboard_timer.start(30_000)
-
-    def _clear_clipboard(self) -> None:
-        """Clear the clipboard after the 30-second timeout."""
-        QApplication.clipboard().clear()
-        self.statusBar().showMessage("Zwischenablage geloescht")
-        self._clipboard_timer = None
+            self._detail_pane.clear()
 
     # -----------------------------------------------------------------------
-    # Sidebar signal handlers
+    # Nav signal handler
     # -----------------------------------------------------------------------
 
-    def _on_search_changed(self, text: str) -> None:
-        """Re-filter the entry list on every keystroke."""
-        # Save before populate — blockSignals prevents _on_entry_selected from
-        # resetting _current_entry_id to None during the list rebuild.
-        saved_id = self._current_entry_id
-        try:
-            entries = self._vault.search_entries(text) if text else self._vault.list_entries()
-        except Exception as e:
-            QMessageBox.critical(self, "Fehler", str(e))
-            return
-        self._populate_entry_list(entries)
-        self._restore_selection(saved_id)
+    def _on_nav_changed(self, value: str) -> None:
+        """Switch filter, run import, or open settings based on nav_changed value."""
+        if value in ("all", "favorites"):
+            self._current_filter = value
+            self._current_entry_id = None
+            self._detail_pane.clear()
 
-    def _on_entry_selected(
-        self,
-        current: QListWidgetItem | None,
-        _previous: QListWidgetItem | None,
-    ) -> None:
+            if value == "all":
+                self._list_pane.set_empty_message("Keine Einträge vorhanden.")
+            else:
+                self._list_pane.set_empty_message(
+                    "Noch keine Favoriten. Markiere einen Eintrag mit dem Stern, "
+                    "um ihn hier zu sehen."
+                )
+
+            self._load_current_filter()
+
+        elif value == "import":
+            self._run_import()
+
+        elif value == "settings":
+            self._on_settings()
+
+    # -----------------------------------------------------------------------
+    # List pane signal handlers
+    # -----------------------------------------------------------------------
+
+    def _on_entry_selected(self, entry_id: int) -> None:
         """Load the selected entry into the detail pane, decrypting its password."""
-        if current is None:
-            self._clear_detail()
-            return
-        entry_id: int | None = current.data(Qt.UserRole)
-        if entry_id is None:
-            self._clear_detail()
-            return
+        self._current_entry_id = entry_id
         try:
             entry = self._vault.get_entry(entry_id)
         except Exception as e:
             QMessageBox.critical(self, "Fehler", str(e))
             return
         if entry is None:
-            self._clear_detail()
+            self._detail_pane.clear()
+            self._current_entry_id = None
             return
-        self._load_entry_into_detail(entry)
+        self._detail_pane.load_entry(entry)
+
+    def _on_search_changed(self, text: str) -> None:
+        """Re-filter the entry list on every keystroke.
+
+        Non-empty text: search across all entries regardless of current filter.
+        Empty text: restore the active filter (all / favorites).
+        """
+        saved_id = self._current_entry_id
+        try:
+            if text:
+                entries = self._vault.search_entries(text)
+            elif self._current_filter == "favorites":
+                entries = self._vault.list_favorites()
+            else:
+                entries = self._vault.list_entries()
+        except Exception as e:
+            QMessageBox.critical(self, "Fehler", str(e))
+            return
+
+        self._list_pane.set_entries(entries)
+        if saved_id is not None:
+            self._list_pane.select_entry(saved_id)
 
     # -----------------------------------------------------------------------
-    # Detail pane action handlers
+    # Detail pane signal handlers — CRUD
     # -----------------------------------------------------------------------
 
     def _on_new_entry(self) -> None:
@@ -397,7 +265,6 @@ class MainWindow(QMainWindow):
         if dialog.exec() != QDialog.Accepted:
             return
         data = dialog.get_entry()
-
         try:
             entry_id = self._vault.add_entry(
                 data.title,
@@ -410,14 +277,13 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Fehler", str(e))
             return
-        self._refresh_entry_list(select_id=entry_id)
+        self._current_entry_id = entry_id
+        self._load_current_filter(select_id=entry_id)
 
-    def _on_edit_entry(self) -> None:
+    def _on_edit_entry(self, entry_id: int) -> None:
         """Open the entry dialog pre-filled with the current entry and persist changes."""
-        if self._current_entry_id is None:
-            return
         try:
-            current = self._vault.get_entry(self._current_entry_id)
+            current = self._vault.get_entry(entry_id)
         except Exception as e:
             QMessageBox.critical(self, "Fehler", str(e))
             return
@@ -429,21 +295,20 @@ class MainWindow(QMainWindow):
             return
 
         data = dialog.get_entry()
-        # ID muss übernommen werden, sonst geht der UPDATE ins Leere
+        # The ID must be carried over; the dialog's get_entry() returns id=None.
         data.id = current.id
-        # Ciphertext aus dem Dialog ist b"" — wir reichen das Klartext-Passwort als
-        # new_password durch, damit update_entry es frisch verschlüsselt (mit neuer Nonce).
+        # Ciphertext from the dialog is b"" — pass plaintext as new_password so
+        # update_entry re-encrypts with a fresh nonce.
         try:
             self._vault.update_entry(data, new_password=data.password)
         except Exception as e:
             QMessageBox.critical(self, "Fehler", str(e))
             return
-        self._refresh_entry_list(select_id=current.id)
+        self._current_entry_id = current.id
+        self._load_current_filter(select_id=current.id)
 
-    def _on_delete_entry(self) -> None:
-        """Ask for confirmation, then permanently delete the selected entry."""
-        if self._current_entry_id is None:
-            return
+    def _on_delete_entry(self, entry_id: int) -> None:
+        """Ask for confirmation, then permanently delete the entry."""
         reply = QMessageBox.question(
             self,
             "Eintrag loeschen",
@@ -454,46 +319,47 @@ class MainWindow(QMainWindow):
         if reply != QMessageBox.Yes:
             return
         try:
-            self._vault.delete_entry(self._current_entry_id)
+            self._vault.delete_entry(entry_id)
         except Exception as e:
             QMessageBox.critical(self, "Fehler", str(e))
             return
         self._current_entry_id = None
-        self._refresh_entry_list()
+        self._detail_pane.clear()
+        self._load_current_filter()
 
     # -----------------------------------------------------------------------
-    # Settings dialog + signal handlers
+    # Detail pane signal handlers — favorites
+    # -----------------------------------------------------------------------
+
+    def _on_favorite_toggled(self, entry_id: int, is_favorite: bool) -> None:
+        """Persist the favorite state and reload the current filtered view."""
+        try:
+            self._vault.set_favorite(entry_id, is_favorite)
+        except Exception as e:
+            QMessageBox.critical(self, "Fehler", str(e))
+            return
+        self._load_current_filter(select_id=entry_id)
+
+    # -----------------------------------------------------------------------
+    # CSV import
+    # -----------------------------------------------------------------------
+
+    def _run_import(self) -> None:
+        """Run the standalone CSV import flow and refresh the list on success."""
+        added = run_csv_import(self, self._vault)
+        if added > 0:
+            self._load_current_filter()
+            self.statusBar().showMessage(f"{added} Einträge importiert.")
+
+    # -----------------------------------------------------------------------
+    # Settings dialog + vault reset
     # -----------------------------------------------------------------------
 
     def _on_settings(self) -> None:
-        """Open the settings dialog and wire up its signals."""
+        """Open the settings dialog and wire the vault reset signal."""
         dlg = SettingsDialog(parent=self)
-        dlg.entries_imported.connect(self._on_entries_imported)
         dlg.vault_reset_requested.connect(self._on_vault_reset_requested)
         dlg.exec()
-
-    def _on_entries_imported(self, entries: list) -> None:
-        """Encrypt and persist every entry emitted by SettingsDialog.entries_imported."""
-        added = 0
-        failed = 0
-        for entry in entries:
-            try:
-                self._vault.add_entry(
-                    entry.title,
-                    entry.password or "",
-                    username=entry.username or None,
-                    url=entry.url or None,
-                    notes=entry.notes,
-                    tag_names=None,
-                )
-                added += 1
-            except Exception:
-                failed += 1
-        self._refresh_entry_list()
-        if failed:
-            self.statusBar().showMessage(f"{added} importiert, {failed} Fehler.")
-        else:
-            self.statusBar().showMessage(f"{added} Einträge importiert.")
 
     def _on_vault_reset_requested(self) -> None:
         """Delete all entries and rotate the DPAPI-protected master key.
@@ -504,7 +370,6 @@ class MainWindow(QMainWindow):
         3. Close the vault, update vault_meta via a raw sqlite3 connection,
            then reopen with the new key.
         """
-        # 1. Delete every entry through the public API.
         try:
             for entry in self._vault.list_entries():
                 self._vault.delete_entry(entry.id)
@@ -512,7 +377,6 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Fehler", str(e))
             return
 
-        # 2. Generate and protect a new master key.
         try:
             new_key = crypto.generate_master_key()
             new_blob = crypto.protect_master_key(new_key)
@@ -520,8 +384,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Fehler", str(e))
             return
 
-        # 3. Persist the new DPAPI blob.  We close the vault first so both
-        #    connections don't hold the WAL file at the same time.
+        # Close the vault before opening a second connection to the same file.
         db_path = Vault.default_path()
         self._vault.close()
         try:
@@ -538,7 +401,6 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Fehler", str(e))
             return
 
-        # 4. Reopen the vault with the rotated key.
         try:
             self._vault.open(new_key, path=db_path)
         except Exception as e:
@@ -546,6 +408,7 @@ class MainWindow(QMainWindow):
             return
 
         self._master_key = new_key
-        self._clear_detail()
-        self._refresh_entry_list()
+        self._current_entry_id = None
+        self._detail_pane.clear()
+        self._load_current_filter()
         self.statusBar().showMessage("Vault zurückgesetzt — neuer DPAPI-Schlüssel aktiv.")

@@ -19,6 +19,7 @@ def main() -> int:
     """Bootstrap the vault and start the Qt event loop. Returns the exit code."""
     app = QApplication(sys.argv)
     app.setApplicationName("PassSimple")
+    app.setApplicationDisplayName("")
     app.setOrganizationName("PassSimple")
 
     icon_path = _ASSETS_DIR / "icon.ico"
