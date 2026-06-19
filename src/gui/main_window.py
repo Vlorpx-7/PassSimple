@@ -8,6 +8,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import (
+    QApplication,
     QDialog,
     QFrame,
     QHBoxLayout,
@@ -23,6 +24,7 @@ from src.gui.csv_import_flow import run_csv_import
 from src.gui.dialogs import EntryDialog, SettingsDialog
 from src.gui.widgets.entry_detail_pane import EntryDetailPane
 from src.gui.widgets.entry_list_pane import EntryListPane
+from src.gui.tray import AppTray
 from src.gui.widgets.nav_sidebar import NavSidebar
 
 _ASSETS_DIR = Path(__file__).parent.parent.parent / "assets"
@@ -42,11 +44,18 @@ class MainWindow(QMainWindow):
         self._master_key = master_key  # private — NOT a Qt property
         self._current_filter: str = "all"
         self._current_entry_id: int | None = None
+        self._really_quit: bool = False
+        self._hint_shown: bool = self._vault.get_meta("tray_hint_shown") is not None
 
         self._init_ui()
         self._load_stylesheet()
         # Load all entries into the list on startup.
         self._load_current_filter()
+
+        # Tray must be created after the stylesheet is applied so the app icon
+        # is already set on QApplication before we read it.
+        self._tray = AppTray(self, QApplication.instance().windowIcon())
+        self._tray.show()
 
     # -----------------------------------------------------------------------
     # UI construction
@@ -156,6 +165,38 @@ class MainWindow(QMainWindow):
             )
         except Exception:
             pass
+
+    # -----------------------------------------------------------------------
+    # Window close / tray behaviour
+    # -----------------------------------------------------------------------
+
+    def closeEvent(self, event: object) -> None:
+        """Hide to tray instead of quitting, unless quit_application() was called."""
+        if self._really_quit:
+            event.accept()  # type: ignore[union-attr]
+            return
+        event.ignore()  # type: ignore[union-attr]
+        self.hide()
+        if not self._hint_shown:
+            self._hint_shown = True
+            self._vault.set_meta("tray_hint_shown", b"1")
+            self._tray.showMessage(
+                "PassSimple läuft im Hintergrund",
+                "Klicke das Tray-Icon zum Öffnen.",
+                self._tray.MessageIcon.Information,
+                3000,
+            )
+
+    def quit_application(self) -> None:
+        """Cleanly exit the app from anywhere (window visible or hidden in tray).
+
+        Bypasses closeEvent entirely: hides the tray first (otherwise Qt keeps
+        the event loop alive as long as a QSystemTrayIcon exists), then quits
+        the event loop directly.
+        """
+        self._really_quit = True
+        self._tray.hide()
+        QApplication.instance().quit()
 
     # -----------------------------------------------------------------------
     # Filter / list management

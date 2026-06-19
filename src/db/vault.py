@@ -177,6 +177,26 @@ class Vault:
         )
 
     # -----------------------------------------------------------------------
+    # Generic meta key-value store
+    # -----------------------------------------------------------------------
+
+    def get_meta(self, key: str) -> bytes | None:
+        """Read a value from vault_meta by key. Returns None if the key is absent."""
+        row = self._c().execute(
+            "SELECT value FROM vault_meta WHERE key = ?", (key,)
+        ).fetchone()
+        return bytes(row["value"]) if row is not None else None
+
+    def set_meta(self, key: str, value: bytes) -> None:
+        """Write or overwrite a value in vault_meta (upsert)."""
+        conn = self._c()
+        conn.execute(
+            "INSERT OR REPLACE INTO vault_meta (key, value) VALUES (?, ?)",
+            (key, value),
+        )
+        conn.commit()
+
+    # -----------------------------------------------------------------------
     # Entry CRUD
     # -----------------------------------------------------------------------
 

@@ -401,3 +401,23 @@ def test_update_entry_persists_favorite(vault: Vault) -> None:
     entry.is_favorite = True
     vault.update_entry(entry)
     assert vault.get_entry(eid).is_favorite is True
+
+
+# ---------------------------------------------------------------------------
+# Meta key-value store
+# ---------------------------------------------------------------------------
+
+
+def test_meta_get_set(vault: Vault) -> None:
+    """set_meta / get_meta must write, read, overwrite, and read the new value."""
+    vault.set_meta("some_flag", b"first")
+    assert vault.get_meta("some_flag") == b"first"
+
+    # Overwrite (INSERT OR REPLACE) must return the new value, not the old one.
+    vault.set_meta("some_flag", b"second")
+    assert vault.get_meta("some_flag") == b"second"
+
+
+def test_meta_get_returns_none_for_missing_key(vault: Vault) -> None:
+    """get_meta must return None for a key that has never been set."""
+    assert vault.get_meta("nonexistent_key") is None
