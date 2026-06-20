@@ -21,6 +21,7 @@ _ASSETS_DIR = Path(__file__).parent.parent / "assets"
 def main() -> int:
     """Bootstrap the vault and start the Qt event loop. Returns the exit code."""
     app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)
     app.setApplicationName("PassSimple")
     app.setApplicationDisplayName("")
     app.setOrganizationName("PassSimple")

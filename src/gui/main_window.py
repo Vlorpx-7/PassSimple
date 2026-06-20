@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QMetaObject, Qt, Slot
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
@@ -26,6 +26,7 @@ from src.gui.dialogs import EntryDialog, SettingsDialog
 from src.gui.widgets.entry_detail_pane import EntryDetailPane
 from src.gui.widgets.entry_list_pane import EntryListPane
 from src.gui.title_bar import apply_title_bar, set_current_theme
+from src.gui.quick_search import QuickSearchPopup
 from src.gui.tray import AppTray
 from src.gui.widgets.nav_sidebar import NavSidebar
 
@@ -66,6 +67,13 @@ class MainWindow(QMainWindow):
         # is already set on QApplication before we read it.
         self._tray = AppTray(self, QApplication.instance().windowIcon())
         self._tray.show()
+
+        self._quick_search: QuickSearchPopup | None = None
+        try:
+            import keyboard  # type: ignore[import-untyped]
+            keyboard.add_hotkey("ctrl+alt+p", self._on_global_hotkey)
+        except Exception:
+            pass  # Hotkey registration can fail on some systems; app still runs
 
     # -----------------------------------------------------------------------
     # UI construction
@@ -132,7 +140,7 @@ class MainWindow(QMainWindow):
         filename = "styles_light.qss" if theme == b"light" else "styles_dark.qss"
         qss_path = Path(__file__).parent / filename
         try:
-            self.setStyleSheet(qss_path.read_text(encoding="utf-8"))
+            QApplication.instance().setStyleSheet(qss_path.read_text(encoding="utf-8"))
         except OSError:
             pass
 
@@ -147,6 +155,32 @@ class MainWindow(QMainWindow):
         """Apply the title bar style once the native window handle exists."""
         super().showEvent(event)
         apply_title_bar(self)
+
+    # -----------------------------------------------------------------------
+    # Quick-search popup
+    # -----------------------------------------------------------------------
+
+    @Slot()
+    def show_quick_search(self) -> None:
+        """Show or focus the quick-search popup.
+
+        Creates a new QuickSearchPopup if none is open; otherwise brings the
+        existing one to the foreground.  Must be a @Slot so QMetaObject.invokeMethod
+        can marshal calls from the keyboard background thread into the Qt main thread.
+        """
+        if self._quick_search is None or not self._quick_search.isVisible():
+            self._quick_search = QuickSearchPopup(self._vault, parent=None)
+        self._quick_search.show()
+        self._quick_search.raise_()
+        self._quick_search.activateWindow()
+
+    def _on_global_hotkey(self) -> None:
+        """Callback invoked by the keyboard library from a background thread.
+
+        Must not touch Qt objects directly — marshals show_quick_search into
+        the Qt main thread via a queued meta-method call.
+        """
+        QMetaObject.invokeMethod(self, "show_quick_search", Qt.ConnectionType.QueuedConnection)
 
     # -----------------------------------------------------------------------
     # Window close / tray behaviour
@@ -177,6 +211,11 @@ class MainWindow(QMainWindow):
         the event loop directly.
         """
         self._really_quit = True
+        try:
+            import keyboard  # type: ignore[import-untyped]
+            keyboard.unhook_all()
+        except Exception:
+            pass
         self._tray.hide()
         QApplication.instance().quit()
 

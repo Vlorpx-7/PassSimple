@@ -115,6 +115,10 @@ class SettingsDialog(QDialog):
         vl.addWidget(QLabel(f"Version {__version__} ({git_hash}) · {build_date}"))
         vl.addWidget(QLabel("Lokaler Passwortmanager mit DPAPI-Verschlüsselung"))
 
+        hotkey_lbl = QLabel("Global-Hotkey: Strg+Alt+P")
+        hotkey_lbl.setToolTip("Öffnet Schnellsuche von überall")
+        vl.addWidget(hotkey_lbl)
+
         path_row = QHBoxLayout()
         path_row.addWidget(QLabel("Vault-Speicherort:"))
         path_edit = QLineEdit(str(Vault.default_path()))
