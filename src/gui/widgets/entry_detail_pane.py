@@ -2,20 +2,27 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QTimer, Signal
+from pathlib import Path
+
+from PySide6.QtCore import QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QFormLayout,
+    QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
+    QStackedWidget,
     QTextEdit,
     QVBoxLayout,
     QWidget,
 )
 
 from src.models import Entry
+
+_ASSETS_DIR = Path(__file__).parent.parent.parent.parent / "assets"
 
 
 class EntryDetailPane(QWidget):
@@ -58,15 +65,28 @@ class EntryDetailPane(QWidget):
     # -----------------------------------------------------------------------
 
     def _init_ui(self) -> None:
-        """Lay out the toolbar, form, and action buttons."""
+        """Lay out the toolbar, then a stacked widget (empty-state / form)."""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(10)
 
         layout.addLayout(self._build_toolbar())
-        layout.addLayout(self._build_form())
-        layout.addLayout(self._build_action_row())
-        layout.addStretch()
+
+        self._stack = QStackedWidget()
+        layout.addWidget(self._stack, 1)
+
+        # Index 0 — empty state (no entry selected)
+        self._stack.addWidget(self._build_empty_state())
+
+        # Index 1 — entry form + action buttons
+        form_container = QWidget()
+        form_vl = QVBoxLayout(form_container)
+        form_vl.setContentsMargins(0, 0, 0, 0)
+        form_vl.setSpacing(10)
+        form_vl.addLayout(self._build_form())
+        form_vl.addLayout(self._build_action_row())
+        form_vl.addStretch()
+        self._stack.addWidget(form_container)
 
     def _build_toolbar(self) -> QHBoxLayout:
         """Top toolbar: stretch on the left, '+ Neuer Eintrag' on the right."""
@@ -74,9 +94,41 @@ class EntryDetailPane(QWidget):
         row.addStretch()
         new_btn = QPushButton("+ Neuer Eintrag")
         new_btn.setObjectName("primary")
+        new_btn.setToolTip("Neuen Eintrag erstellen (Strg+N)")
         new_btn.clicked.connect(self.new_entry_requested.emit)
         row.addWidget(new_btn)
         return row
+
+    def _build_empty_state(self) -> QWidget:
+        """Centered placeholder shown when no entry is selected."""
+        widget = QWidget()
+        vl = QVBoxLayout(widget)
+        vl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        vl.setSpacing(12)
+
+        icon_lbl = QLabel()
+        icon_path = _ASSETS_DIR / "icon.ico"
+        if icon_path.exists():
+            pixmap = QIcon(str(icon_path)).pixmap(QSize(96, 96))
+            icon_lbl.setPixmap(pixmap)
+            effect = QGraphicsOpacityEffect(icon_lbl)
+            effect.setOpacity(0.30)
+            icon_lbl.setGraphicsEffect(effect)
+        icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        vl.addWidget(icon_lbl)
+
+        main_lbl = QLabel("Wähle einen Eintrag aus der Liste")
+        main_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        font = QFont()
+        font.setPointSize(13)
+        main_lbl.setFont(font)
+        vl.addWidget(main_lbl)
+
+        sub_lbl = QLabel("oder erstelle einen neuen mit + Neuer Eintrag")
+        sub_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        vl.addWidget(sub_lbl)
+
+        return widget
 
     def _build_form(self) -> QFormLayout:
         """Form with all entry fields. Password row includes eye and copy buttons."""
@@ -97,6 +149,7 @@ class EntryDetailPane(QWidget):
         self._star_btn.setObjectName("starToggle")
         self._star_btn.setCheckable(True)
         self._star_btn.setFixedWidth(36)
+        self._star_btn.setToolTip("Als Favorit markieren")
         # Use clicked(checked) so setChecked() in load_entry() doesn't emit.
         self._star_btn.clicked.connect(self._on_star_clicked)
         title_hl.addWidget(self._star_btn)
@@ -139,11 +192,13 @@ class EntryDetailPane(QWidget):
         self._eye_btn = QPushButton("Anzeigen")
         self._eye_btn.setCheckable(True)
         self._eye_btn.setFixedWidth(80)
+        self._eye_btn.setToolTip("Passwort anzeigen / verbergen")
         self._eye_btn.toggled.connect(self._on_eye_toggled)
         hl.addWidget(self._eye_btn)
 
         self._copy_btn = QPushButton("Kopieren")
         self._copy_btn.setFixedWidth(80)
+        self._copy_btn.setToolTip("Passwort in Zwischenablage (30 s automatisches Löschen)")
         self._copy_btn.clicked.connect(self._on_copy_password)
         hl.addWidget(self._copy_btn)
 
@@ -153,9 +208,11 @@ class EntryDetailPane(QWidget):
         """Bearbeiten and Loeschen buttons, left-aligned."""
         row = QHBoxLayout()
         self._edit_btn = QPushButton("Bearbeiten")
+        self._edit_btn.setToolTip("Eintrag bearbeiten")
         self._edit_btn.clicked.connect(self._on_edit)
         self._delete_btn = QPushButton("Loeschen")
         self._delete_btn.setObjectName("danger")
+        self._delete_btn.setToolTip("Eintrag löschen")
         self._delete_btn.clicked.connect(self._on_delete)
         row.addWidget(self._edit_btn)
         row.addWidget(self._delete_btn)
@@ -189,6 +246,7 @@ class EntryDetailPane(QWidget):
         self._star_btn.setText("★" if entry.is_favorite else "☆")
 
         self._set_entry_controls_enabled(True)
+        self._stack.setCurrentIndex(1)
 
     def clear(self) -> None:
         """Clear all fields and disable action controls."""
@@ -211,6 +269,7 @@ class EntryDetailPane(QWidget):
         self._password_edit.setEchoMode(QLineEdit.Password)
 
         self._set_entry_controls_enabled(False)
+        self._stack.setCurrentIndex(0)
 
     # -----------------------------------------------------------------------
     # Internal helpers

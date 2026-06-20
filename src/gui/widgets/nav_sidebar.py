@@ -59,7 +59,9 @@ class NavSidebar(QWidget):
         layout.addWidget(self._make_nav_btn("Favoriten", "favorites", checkable=True))
         layout.addWidget(self._make_nav_btn("Import", "import", checkable=False))
         layout.addStretch()
-        layout.addWidget(self._make_nav_btn("Einstellungen", "settings", checkable=False))
+        settings_btn = self._make_nav_btn("Einstellungen", "settings", checkable=False)
+        settings_btn.setToolTip("Einstellungen öffnen")
+        layout.addWidget(settings_btn)
 
     def _build_header(self) -> QHBoxLayout:
         """App icon (32×32) + bold 'PassSimple' title label."""

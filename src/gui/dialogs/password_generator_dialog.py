@@ -85,6 +85,7 @@ class PasswordGeneratorDialog(QDialog):
         layout.addWidget(self._entropy_label)
 
         regen_btn = QPushButton("Neu generieren")
+        regen_btn.setToolTip("Anderes Passwort vorschlagen")
         regen_btn.clicked.connect(self._generate)
         layout.addWidget(regen_btn)
 

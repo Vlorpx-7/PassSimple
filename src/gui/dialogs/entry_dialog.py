@@ -100,11 +100,13 @@ class EntryDialog(QDialog):
         self._eye_btn = QPushButton("Anzeigen")
         self._eye_btn.setCheckable(True)
         self._eye_btn.setFixedWidth(80)
+        self._eye_btn.setToolTip("Passwort anzeigen / verbergen")
         self._eye_btn.toggled.connect(self._on_eye_toggled)
         hl.addWidget(self._eye_btn)
 
         gen_btn = QPushButton("Generieren")
         gen_btn.setFixedWidth(90)
+        gen_btn.setToolTip("Sicheres Passwort generieren")
         gen_btn.clicked.connect(self._on_generate)
         hl.addWidget(gen_btn)
 

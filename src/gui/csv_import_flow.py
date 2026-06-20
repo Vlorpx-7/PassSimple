@@ -17,6 +17,8 @@ from PySide6.QtWidgets import (
 )
 
 from src.db import Vault
+from src.gui.title_bar import apply_title_bar
+from src.gui.utils import plural_entries
 from src.importer import ImportResult, import_csv
 
 
@@ -29,15 +31,17 @@ def run_csv_import(parent: QWidget, vault: Vault) -> int:
     Returns the number of successfully imported entries (0 if cancelled at any step).
     """
     # 1. Warn about plaintext content.
-    reply = QMessageBox.warning(
-        parent,
-        "Sicherheitshinweis",
+    warn_box = QMessageBox(parent)
+    warn_box.setIcon(QMessageBox.Warning)
+    warn_box.setWindowTitle("Sicherheitshinweis")
+    warn_box.setText(
         "Achtung: Die CSV-Datei enthält Klartext-Passwörter.\n"
-        "Bitte die Datei nach dem Import sicher löschen.",
-        QMessageBox.Ok | QMessageBox.Cancel,
-        QMessageBox.Ok,
+        "Bitte die Datei nach dem Import sicher löschen."
     )
-    if reply != QMessageBox.Ok:
+    warn_box.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+    warn_box.setDefaultButton(QMessageBox.Ok)
+    apply_title_bar(warn_box)
+    if warn_box.exec() != QMessageBox.Ok:
         return 0
 
     # 2. File picker.
@@ -88,16 +92,18 @@ def run_csv_import(parent: QWidget, vault: Vault) -> int:
     _show_import_result(parent, added, result)
 
     # 6. Prompt to delete source — it still holds plaintext passwords.
-    reply = QMessageBox.question(
-        parent,
-        "Quelldatei löschen?",
+    del_box = QMessageBox(parent)
+    del_box.setIcon(QMessageBox.Question)
+    del_box.setWindowTitle("Quelldatei löschen?")
+    del_box.setText(
         "Die Quelldatei enthält noch immer Klartext-Passwörter.\n"
         "Datei jetzt sicher löschen?\n\n"
-        f"{csv_path}",
-        QMessageBox.Yes | QMessageBox.No,
-        QMessageBox.Yes,
+        f"{csv_path}"
     )
-    if reply == QMessageBox.Yes:
+    del_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+    del_box.setDefaultButton(QMessageBox.Yes)
+    apply_title_bar(del_box)
+    if del_box.exec() == QMessageBox.Yes:
         try:
             csv_path.unlink()
         except OSError as e:
@@ -112,18 +118,19 @@ def _show_import_result(parent: QWidget, imported: int, result: ImportResult) ->
         QMessageBox.information(
             parent,
             "Import abgeschlossen",
-            f"{imported} Eintrag/Einträge erfolgreich importiert.",
+            f"{plural_entries(imported)} erfolgreich importiert.",
         )
         return
 
     dlg = QDialog(parent)
     dlg.setWindowTitle("Import abgeschlossen")
+    apply_title_bar(dlg)
     dlg.setMinimumWidth(480)
     vl = QVBoxLayout(dlg)
     vl.setSpacing(8)
 
     vl.addWidget(QLabel(
-        f"{imported} Eintrag/Einträge importiert,  {len(result.errors)} übersprungen:"
+        f"{plural_entries(imported)} importiert, {len(result.errors)} übersprungen:"
     ))
 
     error_edit = QTextEdit()

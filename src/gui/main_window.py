@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 from src import crypto
 from src.db import Vault
 from src.gui.csv_import_flow import run_csv_import
+from src.gui.utils import plural_entries
 from src.gui.dialogs import EntryDialog, SettingsDialog
 from src.gui.widgets.entry_detail_pane import EntryDetailPane
 from src.gui.widgets.entry_list_pane import EntryListPane
@@ -322,14 +323,14 @@ class MainWindow(QMainWindow):
 
     def _on_delete_entry(self, entry_id: int) -> None:
         """Ask for confirmation, then permanently delete the entry."""
-        reply = QMessageBox.question(
-            self,
-            "Eintrag loeschen",
-            "Eintrag wirklich loeschen? Diese Aktion kann nicht rueckgaengig gemacht werden.",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No,
-        )
-        if reply != QMessageBox.Yes:
+        del_box = QMessageBox(self)
+        del_box.setIcon(QMessageBox.Question)
+        del_box.setWindowTitle("Eintrag loeschen")
+        del_box.setText("Eintrag wirklich loeschen? Diese Aktion kann nicht rueckgaengig gemacht werden.")
+        del_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        del_box.setDefaultButton(QMessageBox.No)
+        apply_title_bar(del_box)
+        if del_box.exec() != QMessageBox.Yes:
             return
         try:
             self._vault.delete_entry(entry_id)
@@ -362,7 +363,7 @@ class MainWindow(QMainWindow):
         added = run_csv_import(self, self._vault)
         if added > 0:
             self._load_current_filter()
-            self.statusBar().showMessage(f"{added} Einträge importiert.")
+            self.statusBar().showMessage(f"{plural_entries(added)} importiert.")
 
     # -----------------------------------------------------------------------
     # Settings dialog + vault reset

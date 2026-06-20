@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from PySide6.QtCore import Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
@@ -18,8 +20,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from src import __version__
 from src.db import Vault
 from src.gui.title_bar import apply_title_bar
+from src.gui.utils import get_git_short_hash
 
 
 class SettingsDialog(QDialog):
@@ -106,7 +110,9 @@ class SettingsDialog(QDialog):
         title_lbl.setFont(font)
         vl.addWidget(title_lbl)
 
-        vl.addWidget(QLabel("Version 0.1.0"))
+        git_hash = get_git_short_hash()
+        build_date = datetime.now().strftime("%Y-%m-%d")
+        vl.addWidget(QLabel(f"Version {__version__} ({git_hash}) · {build_date}"))
         vl.addWidget(QLabel("Lokaler Passwortmanager mit DPAPI-Verschlüsselung"))
 
         path_row = QHBoxLayout()
@@ -126,6 +132,7 @@ class SettingsDialog(QDialog):
 
         reset_btn = QPushButton("Vault zurücksetzen")
         reset_btn.setObjectName("danger")
+        reset_btn.setToolTip("Alle Einträge löschen und DPAPI-Schlüssel rotieren")
         reset_btn.clicked.connect(self._on_vault_reset)
         vl.addWidget(reset_btn)
 
@@ -142,14 +149,16 @@ class SettingsDialog(QDialog):
 
     def _on_vault_reset(self) -> None:
         """Ask for confirmation, then emit vault_reset_requested."""
-        reply = QMessageBox.warning(
-            self,
-            "Vault zurücksetzen",
+        reset_box = QMessageBox(self)
+        reset_box.setIcon(QMessageBox.Warning)
+        reset_box.setWindowTitle("Vault zurücksetzen")
+        reset_box.setText(
             "Alle Einträge werden gelöscht und der DPAPI-Schlüssel neu erzeugt.\n"
-            "Diese Aktion kann nicht rückgängig gemacht werden.\n\nSicher?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No,
+            "Diese Aktion kann nicht rückgängig gemacht werden.\n\nSicher?"
         )
-        if reply == QMessageBox.Yes:
+        reset_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        reset_box.setDefaultButton(QMessageBox.No)
+        apply_title_bar(reset_box)
+        if reset_box.exec() == QMessageBox.Yes:
             self.vault_reset_requested.emit()
             self.close()
