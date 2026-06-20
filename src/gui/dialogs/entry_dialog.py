@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from src.gui.dialogs.password_generator_dialog import PasswordGeneratorDialog
+from src.gui.title_bar import apply_title_bar
 from src.models import Entry, Tag
 
 
@@ -36,6 +37,11 @@ class EntryDialog(QDialog):
         self._init_ui()
         if entry is not None:
             self._populate(entry)
+
+    def showEvent(self, event: object) -> None:
+        """Apply the themed title bar once the native window handle exists."""
+        super().showEvent(event)
+        apply_title_bar(self)
 
     # -----------------------------------------------------------------------
     # UI construction

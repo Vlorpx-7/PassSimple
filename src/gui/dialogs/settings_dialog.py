@@ -1,11 +1,13 @@
-"""Settings dialog: app info and vault administration."""
+"""Settings dialog: appearance, app info, and vault administration."""
 
 from __future__ import annotations
 
 from PySide6.QtCore import Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
+    QComboBox,
     QDialog,
+    QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -17,26 +19,36 @@ from PySide6.QtWidgets import (
 )
 
 from src.db import Vault
+from src.gui.title_bar import apply_title_bar
 
 
 class SettingsDialog(QDialog):
-    """Application settings with two sections: About and Danger Zone.
+    """Application settings with three sections: Appearance, About, and Danger Zone.
 
     Signals
     -------
     vault_reset_requested()
-        Emitted when the user confirms a vault reset.  The receiver is
-        responsible for deleting all entries and rotating the master key.
+        Emitted when the user confirms a vault reset.
+    theme_changed(str)
+        Emitted with "dark" or "light" when the user changes the theme combo box.
+        Connected to MainWindow.apply_theme so the change is live.
     """
 
     vault_reset_requested = Signal()
+    theme_changed = Signal(str)
 
-    def __init__(self, parent: QWidget | None = None) -> None:
-        """Build the dialog layout."""
+    def __init__(self, vault: Vault, parent: QWidget | None = None) -> None:
+        """Build the dialog layout, pre-selecting the current theme from vault_meta."""
         super().__init__(parent)
+        self._vault = vault
         self.setWindowTitle("Einstellungen")
         self.setMinimumWidth(500)
         self._init_ui()
+
+    def showEvent(self, event: object) -> None:
+        """Apply the themed title bar once the native window handle exists."""
+        super().showEvent(event)
+        apply_title_bar(self)
 
     # -----------------------------------------------------------------------
     # UI construction
@@ -47,6 +59,7 @@ class SettingsDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.setSpacing(12)
 
+        layout.addWidget(self._build_appearance_section())
         layout.addWidget(self._build_about_section())
         layout.addWidget(self._build_danger_section())
         layout.addStretch()
@@ -57,6 +70,28 @@ class SettingsDialog(QDialog):
         close_btn.clicked.connect(self.close)
         row.addWidget(close_btn)
         layout.addLayout(row)
+
+    def _build_appearance_section(self) -> QGroupBox:
+        """Build the 'Erscheinungsbild' group with a theme selector."""
+        box = QGroupBox("Erscheinungsbild")
+        form = QFormLayout(box)
+        form.setSpacing(8)
+
+        self._theme_combo = QComboBox()
+        self._theme_combo.addItem("Dunkel", userData="dark")
+        self._theme_combo.addItem("Hell", userData="light")
+
+        # Pre-select the persisted theme; fall back to dark.
+        saved = self._vault.get_meta("theme")
+        current = "light" if saved == b"light" else "dark"
+        index = self._theme_combo.findData(current)
+        if index >= 0:
+            self._theme_combo.setCurrentIndex(index)
+
+        self._theme_combo.currentIndexChanged.connect(self._on_theme_changed)
+        form.addRow("Theme:", self._theme_combo)
+
+        return box
 
     def _build_about_section(self) -> QGroupBox:
         """Build the 'Über' group: app title, version, description, vault path."""
@@ -97,8 +132,13 @@ class SettingsDialog(QDialog):
         return box
 
     # -----------------------------------------------------------------------
-    # Vault reset
+    # Signal handlers
     # -----------------------------------------------------------------------
+
+    def _on_theme_changed(self, index: int) -> None:
+        """Emit theme_changed with the selected theme value."""
+        value: str = self._theme_combo.itemData(index)
+        self.theme_changed.emit(value)
 
     def _on_vault_reset(self) -> None:
         """Ask for confirmation, then emit vault_reset_requested."""

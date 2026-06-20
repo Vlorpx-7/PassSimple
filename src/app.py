@@ -13,6 +13,7 @@ from src.bootstrap import initialize_vault_schema_if_needed, load_or_create_mast
 from src.db import Vault
 from src.gui.main_window import MainWindow
 from src.gui.splash import create_splash
+from src.gui.title_bar import set_current_theme
 
 _ASSETS_DIR = Path(__file__).parent.parent / "assets"
 
@@ -59,6 +60,10 @@ def main() -> int:
         splash.close()
         QMessageBox.critical(None, "Fehler", str(e))
         return 1
+
+    # Seed the title-bar theme cache before any window or dialog is created.
+    theme_bytes = vault.get_meta("theme")
+    set_current_theme("light" if theme_bytes == b"light" else "dark")
 
     window = MainWindow(vault, master_key)
 

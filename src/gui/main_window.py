@@ -24,6 +24,7 @@ from src.gui.csv_import_flow import run_csv_import
 from src.gui.dialogs import EntryDialog, SettingsDialog
 from src.gui.widgets.entry_detail_pane import EntryDetailPane
 from src.gui.widgets.entry_list_pane import EntryListPane
+from src.gui.title_bar import apply_title_bar, set_current_theme
 from src.gui.tray import AppTray
 from src.gui.widgets.nav_sidebar import NavSidebar
 
@@ -116,55 +117,26 @@ class MainWindow(QMainWindow):
     # -----------------------------------------------------------------------
 
     def _load_stylesheet(self) -> None:
-        """Load and apply styles.qss from the same directory as this module."""
-        qss_path = Path(__file__).parent / "styles.qss"
+        """Load and apply the QSS file for the current theme (dark or light)."""
+        theme = self._vault.get_meta("theme")
+        filename = "styles_light.qss" if theme == b"light" else "styles_dark.qss"
+        qss_path = Path(__file__).parent / filename
         try:
             self.setStyleSheet(qss_path.read_text(encoding="utf-8"))
         except OSError:
             pass
 
+    def apply_theme(self, theme: str) -> None:
+        """Persist theme choice, reload the stylesheet, and update the title bar live."""
+        self._vault.set_meta("theme", theme.encode())
+        set_current_theme(theme)
+        self._load_stylesheet()
+        apply_title_bar(self)
+
     def showEvent(self, event: object) -> None:
-        """Apply the dark title bar once the native window handle exists."""
+        """Apply the title bar style once the native window handle exists."""
         super().showEvent(event)
-        self._apply_dark_title_bar()
-
-    def _apply_dark_title_bar(self) -> None:
-        """Apply Windows 11 immersive dark mode to the title bar via DWM API.
-
-        On non-Windows platforms ctypes.windll raises AttributeError, which the
-        broad except catches — no separate platform guard needed.
-        """
-        try:
-            import ctypes
-            hwnd = int(self.winId())
-
-            DWMWA_USE_IMMERSIVE_DARK_MODE = 20
-            value = ctypes.c_int(1)
-            ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                hwnd,
-                DWMWA_USE_IMMERSIVE_DARK_MODE,
-                ctypes.byref(value),
-                ctypes.sizeof(value),
-            )
-
-            # Caption background #1e1e2e and text #cdd6f4 in BGR (COLORREF).
-            # DWMWA_CAPTION_COLOR / DWMWA_TEXT_COLOR require Windows 11 Build 22000+;
-            # on older builds DwmSetWindowAttribute returns a non-zero HRESULT which
-            # we silently ignore — the immersive dark mode above still applies.
-            DWMWA_CAPTION_COLOR = 35
-            DWMWA_TEXT_COLOR = 36
-            caption_color = ctypes.c_uint(0x2E1E1E)   # #1e1e2e → BGR
-            text_color = ctypes.c_uint(0xF4D6CD)       # #cdd6f4 → BGR
-            ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                hwnd, DWMWA_CAPTION_COLOR,
-                ctypes.byref(caption_color), ctypes.sizeof(caption_color),
-            )
-            ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                hwnd, DWMWA_TEXT_COLOR,
-                ctypes.byref(text_color), ctypes.sizeof(text_color),
-            )
-        except Exception:
-            pass
+        apply_title_bar(self)
 
     # -----------------------------------------------------------------------
     # Window close / tray behaviour
@@ -397,9 +369,10 @@ class MainWindow(QMainWindow):
     # -----------------------------------------------------------------------
 
     def _on_settings(self) -> None:
-        """Open the settings dialog and wire the vault reset signal."""
-        dlg = SettingsDialog(parent=self)
+        """Open the settings dialog, wire vault reset and live theme signals."""
+        dlg = SettingsDialog(vault=self._vault, parent=self)
         dlg.vault_reset_requested.connect(self._on_vault_reset_requested)
+        dlg.theme_changed.connect(self.apply_theme)
         dlg.exec()
 
     def _on_vault_reset_requested(self) -> None:

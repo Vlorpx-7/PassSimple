@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from src.generator import _SYMBOLS, entropy_bits, generate_password
+from src.gui.title_bar import apply_title_bar
 
 
 class PasswordGeneratorDialog(QDialog):
@@ -34,6 +35,11 @@ class PasswordGeneratorDialog(QDialog):
         self.setMinimumWidth(420)
         self._init_ui()
         self._generate()
+
+    def showEvent(self, event: object) -> None:
+        """Apply the themed title bar once the native window handle exists."""
+        super().showEvent(event)
+        apply_title_bar(self)
 
     def _init_ui(self) -> None:
         """Build the layout: settings form, preview, entropy hint, action buttons."""
