@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QIcon
@@ -14,8 +13,7 @@ from src.db import Vault
 from src.gui.main_window import MainWindow
 from src.gui.splash import create_splash
 from src.gui.title_bar import set_current_theme
-
-_ASSETS_DIR = Path(__file__).parent.parent / "assets"
+from src.paths import resource_path
 
 
 def main() -> int:
@@ -26,7 +24,7 @@ def main() -> int:
     app.setApplicationDisplayName("")
     app.setOrganizationName("PassSimple")
 
-    icon_path = _ASSETS_DIR / "icon.ico"
+    icon_path = resource_path("assets/icon.ico")
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))
 

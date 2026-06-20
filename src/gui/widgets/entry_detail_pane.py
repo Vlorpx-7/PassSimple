@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from PySide6.QtCore import QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import (
@@ -21,8 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from src.models import Entry
-
-_ASSETS_DIR = Path(__file__).parent.parent.parent.parent / "assets"
+from src.paths import resource_path
 
 
 class EntryDetailPane(QWidget):
@@ -107,7 +104,7 @@ class EntryDetailPane(QWidget):
         vl.setSpacing(12)
 
         icon_lbl = QLabel()
-        icon_path = _ASSETS_DIR / "icon.ico"
+        icon_path = resource_path("assets/icon.ico")
         if icon_path.exists():
             pixmap = QIcon(str(icon_path)).pixmap(QSize(96, 96))
             icon_lbl.setPixmap(pixmap)

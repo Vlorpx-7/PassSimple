@@ -7,7 +7,6 @@ __pycache__/
 *.egg
 *.egg-info/
 dist/
-build/
 .eggs/
 *.manifest
 *.spec.bak
@@ -32,9 +31,14 @@ coverage.xml
 # Distribution / packaging
 MANIFEST
 
-# PyInstaller output
-dist/
+# PyInstaller build outputs (build/passsimple.spec and build.ps1 are tracked)
+build/dist/
+build/build/
 build/passsimple/
+*.spec.tmp
+
+# pytest basetemp (configured in pyproject.toml)
+.pytest_tmp/
 
 # Runtime data (vault lives in %LOCALAPPDATA%, but guard against accidents)
 data/

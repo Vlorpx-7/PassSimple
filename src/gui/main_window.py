@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sqlite3
-from pathlib import Path
 
 from PySide6.QtCore import QMetaObject, Qt, Slot
 from PySide6.QtGui import QIcon, QPixmap
@@ -29,8 +28,7 @@ from src.gui.title_bar import apply_title_bar, set_current_theme
 from src.gui.quick_search import QuickSearchPopup
 from src.gui.tray import AppTray
 from src.gui.widgets.nav_sidebar import NavSidebar
-
-_ASSETS_DIR = Path(__file__).parent.parent.parent / "assets"
+from src.paths import resource_path
 
 
 class MainWindow(QMainWindow):
@@ -138,7 +136,7 @@ class MainWindow(QMainWindow):
         """Load and apply the QSS file for the current theme (dark or light)."""
         theme = self._vault.get_meta("theme")
         filename = "styles_light.qss" if theme == b"light" else "styles_dark.qss"
-        qss_path = Path(__file__).parent / filename
+        qss_path = resource_path(f"src/gui/{filename}")
         try:
             QApplication.instance().setStyleSheet(qss_path.read_text(encoding="utf-8"))
         except OSError:

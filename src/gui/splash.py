@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import QSplashScreen
 
-_ASSETS_DIR = Path(__file__).parent.parent.parent / "assets"
+from src.paths import resource_path
 
 _W, _H = 400, 300
 
@@ -48,7 +46,7 @@ def _build_pixmap() -> QPixmap:
 def _draw_icon(painter: QPainter) -> int:
     """Draw the 96×96 app icon centred horizontally near the top. Returns the icon bottom y."""
     icon_size = 96
-    icon_path = _ASSETS_DIR / "icon.ico"
+    icon_path = resource_path("assets/icon.ico")
     if icon_path.exists():
         icon_pixmap = QIcon(str(icon_path)).pixmap(icon_size, icon_size)
     else:
