@@ -12,6 +12,15 @@ from src.db.connection import open_connection
 from src.db.schema import _DDL, _MIGRATIONS, _SCHEMA_VERSION
 from src.models import Entry, Tag
 
+# Whitelist mapping for list sort orders — keys are user-visible tokens, values
+# are validated SQL ORDER BY expressions.  Only these values ever reach the query.
+_SORT_ORDERS: dict[str, str] = {
+    "title_asc": "title ASC",
+    "title_desc": "title DESC",
+    "updated_desc": "updated_at DESC",
+    "created_desc": "created_at DESC",
+}
+
 
 class Vault:
     """Manages the SQLite vault and all entry/tag CRUD.
@@ -286,15 +295,17 @@ class Vault:
         conn.execute("DELETE FROM entries WHERE id = ?", (entry_id,))
         conn.commit()
 
-    def list_entries(self) -> list[Entry]:
-        """Return all entries ordered by title. Passwords are NOT decrypted."""
-        rows = self._c().execute("SELECT * FROM entries ORDER BY title").fetchall()
+    def list_entries(self, *, sort: str = "title_asc") -> list[Entry]:
+        """Return all entries with the requested sort order. Passwords are NOT decrypted."""
+        order = _SORT_ORDERS.get(sort, _SORT_ORDERS["title_asc"])
+        rows = self._c().execute(f"SELECT * FROM entries ORDER BY {order}").fetchall()
         return [self._row_to_entry(r, decrypt=False) for r in rows]
 
-    def list_favorites(self) -> list[Entry]:
-        """Return all favorite entries ordered by title. Passwords are NOT decrypted."""
+    def list_favorites(self, *, sort: str = "title_asc") -> list[Entry]:
+        """Return all favorite entries with the requested sort order. Passwords are NOT decrypted."""
+        order = _SORT_ORDERS.get(sort, _SORT_ORDERS["title_asc"])
         rows = self._c().execute(
-            "SELECT * FROM entries WHERE is_favorite = 1 ORDER BY title"
+            f"SELECT * FROM entries WHERE is_favorite = 1 ORDER BY {order}"
         ).fetchall()
         return [self._row_to_entry(r, decrypt=False) for r in rows]
 
@@ -307,18 +318,19 @@ class Vault:
         )
         conn.commit()
 
-    def search_entries(self, query: str) -> list[Entry]:
+    def search_entries(self, query: str, *, sort: str = "title_asc") -> list[Entry]:
         """Case-insensitive substring search over title and username.
 
         Passwords are NOT decrypted in results — call get_entry for the full record.
         """
+        order = _SORT_ORDERS.get(sort, _SORT_ORDERS["title_asc"])
         pattern = f"%{query}%"
         rows = self._c().execute(
-            """
+            f"""
             SELECT * FROM entries
             WHERE  title    LIKE ?
             OR     username LIKE ?
-            ORDER  BY title
+            ORDER  BY {order}
             """,
             (pattern, pattern),
         ).fetchall()

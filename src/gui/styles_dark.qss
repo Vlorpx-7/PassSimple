@@ -75,6 +75,42 @@ QSpinBox::down-button:hover {
 }
 
 /* -----------------------------------------------------------------------
+   Combo box
+   ----------------------------------------------------------------------- */
+QComboBox {
+    background-color: #313244;
+    border: 1px solid #45475a;
+    border-radius: 8px;
+    padding: 5px 10px;
+    color: #cdd6f4;
+    selection-background-color: #89b4fa;
+    selection-color: #1e1e2e;
+}
+
+QComboBox:hover {
+    border-color: #585b70;
+}
+
+QComboBox:focus {
+    border-color: #89b4fa;
+}
+
+QComboBox::drop-down {
+    border: none;
+    width: 20px;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #313244;
+    border: 1px solid #45475a;
+    border-radius: 4px;
+    selection-background-color: #89b4fa;
+    selection-color: #1e1e2e;
+    color: #cdd6f4;
+    padding: 2px;
+}
+
+/* -----------------------------------------------------------------------
    Buttons — default
    ----------------------------------------------------------------------- */
 QPushButton {
@@ -165,10 +201,16 @@ QListWidget::item:hover:!selected {
     background-color: #313244;
 }
 
-/* Two-line entry items: the username subtitle */
+/* Three-line entry items: the username subtitle and timestamp */
 QLabel#entrySubtitle {
     color: #a6adc8;
     font-size: 11px;
+    background-color: transparent;
+}
+
+QLabel#entryTimestamp {
+    color: #6c7086;
+    font-size: 10pt;
     background-color: transparent;
 }
 

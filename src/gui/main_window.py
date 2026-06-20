@@ -45,12 +45,20 @@ class MainWindow(QMainWindow):
         self._vault = vault
         self._master_key = master_key  # private — NOT a Qt property
         self._current_filter: str = "all"
+        self._current_sort: str = "title_asc"
         self._current_entry_id: int | None = None
         self._really_quit: bool = False
         self._hint_shown: bool = self._vault.get_meta("tray_hint_shown") is not None
 
         self._init_ui()
         self._load_stylesheet()
+
+        # Restore persisted sort preference before the first load.
+        sort_bytes = self._vault.get_meta("list_sort")
+        if sort_bytes:
+            self._current_sort = sort_bytes.decode()
+        self._list_pane.set_sort(self._current_sort)
+
         # Load all entries into the list on startup.
         self._load_current_filter()
 
@@ -107,6 +115,7 @@ class MainWindow(QMainWindow):
         self._nav.nav_changed.connect(self._on_nav_changed)
         self._list_pane.entry_selected.connect(self._on_entry_selected)
         self._list_pane.search_changed.connect(self._on_search_changed)
+        self._list_pane.sort_changed.connect(self._on_sort_changed)
         self._detail_pane.new_entry_requested.connect(self._on_new_entry)
         self._detail_pane.edit_entry_requested.connect(self._on_edit_entry)
         self._detail_pane.delete_entry_requested.connect(self._on_delete_entry)
@@ -184,9 +193,9 @@ class MainWindow(QMainWindow):
         saved_id = select_id if select_id is not None else self._current_entry_id
         try:
             if self._current_filter == "favorites":
-                entries = self._vault.list_favorites()
+                entries = self._vault.list_favorites(sort=self._current_sort)
             else:
-                entries = self._vault.list_entries()
+                entries = self._vault.list_entries(sort=self._current_sort)
         except Exception as e:
             QMessageBox.critical(self, "Fehler", str(e))
             return
@@ -233,6 +242,12 @@ class MainWindow(QMainWindow):
     # List pane signal handlers
     # -----------------------------------------------------------------------
 
+    def _on_sort_changed(self, sort: str) -> None:
+        """Persist the new sort order and reload the entry list."""
+        self._current_sort = sort
+        self._vault.set_meta("list_sort", sort.encode())
+        self._load_current_filter()
+
     def _on_entry_selected(self, entry_id: int) -> None:
         """Load the selected entry into the detail pane, decrypting its password."""
         self._current_entry_id = entry_id
@@ -256,11 +271,11 @@ class MainWindow(QMainWindow):
         saved_id = self._current_entry_id
         try:
             if text:
-                entries = self._vault.search_entries(text)
+                entries = self._vault.search_entries(text, sort=self._current_sort)
             elif self._current_filter == "favorites":
-                entries = self._vault.list_favorites()
+                entries = self._vault.list_favorites(sort=self._current_sort)
             else:
-                entries = self._vault.list_entries()
+                entries = self._vault.list_entries(sort=self._current_sort)
         except Exception as e:
             QMessageBox.critical(self, "Fehler", str(e))
             return

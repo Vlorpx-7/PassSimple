@@ -421,3 +421,46 @@ def test_meta_get_set(vault: Vault) -> None:
 def test_meta_get_returns_none_for_missing_key(vault: Vault) -> None:
     """get_meta must return None for a key that has never been set."""
     assert vault.get_meta("nonexistent_key") is None
+
+
+# ---------------------------------------------------------------------------
+# Sort orders
+# ---------------------------------------------------------------------------
+
+
+def test_list_entries_sort_title_desc(vault: Vault) -> None:
+    """list_entries with sort='title_desc' must return entries in reverse-title order."""
+    vault.add_entry("Apple", "pw")
+    vault.add_entry("Zebra", "pw")
+    vault.add_entry("Mango", "pw")
+    entries = vault.list_entries(sort="title_desc")
+    titles = [e.title for e in entries]
+    assert titles == sorted(titles, reverse=True)
+
+
+def test_list_entries_sort_updated_desc(vault: Vault) -> None:
+    """list_entries with sort='updated_desc' must put the most recently updated entry first."""
+    ea = vault.add_entry("Alpha", "pw")
+    eb = vault.add_entry("Beta", "pw")
+    # Use explicit timestamps so the test is deterministic regardless of clock precision.
+    vault._conn.execute(
+        "UPDATE entries SET updated_at = ? WHERE id = ?",
+        ("2020-01-01T00:00:00+00:00", ea),
+    )
+    vault._conn.execute(
+        "UPDATE entries SET updated_at = ? WHERE id = ?",
+        ("2023-06-01T00:00:00+00:00", eb),
+    )
+    vault._conn.commit()
+    entries = vault.list_entries(sort="updated_desc")
+    assert entries[0].id == eb
+    assert entries[1].id == ea
+
+
+def test_list_entries_sort_invalid_falls_back_to_title_asc(vault: Vault) -> None:
+    """list_entries with an unrecognised sort token must fall back to title ASC."""
+    vault.add_entry("Zebra", "pw")
+    vault.add_entry("Apple", "pw")
+    entries = vault.list_entries(sort="garbage")
+    titles = [e.title for e in entries]
+    assert titles == sorted(titles)
