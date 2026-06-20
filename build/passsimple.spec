@@ -60,5 +60,6 @@ exe = EXE(
     upx=False,
     console=False,
     icon=os.path.join(project_root, "assets", "icon.ico"),
+    version=os.path.join(SPECPATH, "version_info.txt"),
     uac_admin=False,
 )
