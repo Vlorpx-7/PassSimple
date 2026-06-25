@@ -37,6 +37,9 @@ build/build/
 build/passsimple/
 *.spec.tmp
 
+# NSIS installer output
+build/dist/PassSimple-Setup-*.exe
+
 # pytest basetemp (configured in pyproject.toml)
 .pytest_tmp/
 
