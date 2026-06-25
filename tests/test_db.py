@@ -464,3 +464,60 @@ def test_list_entries_sort_invalid_falls_back_to_title_asc(vault: Vault) -> None
     entries = vault.list_entries(sort="garbage")
     titles = [e.title for e in entries]
     assert titles == sorted(titles)
+
+
+# ---------------------------------------------------------------------------
+# Duplicate detection (find_duplicate)
+# ---------------------------------------------------------------------------
+
+
+def test_find_duplicate_returns_id_on_exact_match(vault: Vault) -> None:
+    """Exact match on all four fields must return the existing entry id."""
+    eid = vault.add_entry("Gmail", "hunter2", username="alice", url="https://gmail.com")
+    assert vault.find_duplicate("Gmail", "alice", "https://gmail.com", "hunter2") == eid
+
+
+def test_find_duplicate_returns_none_when_password_differs(vault: Vault) -> None:
+    """Matching title/url/username but different password must return None."""
+    vault.add_entry("Gmail", "hunter2", username="alice", url="https://gmail.com")
+    assert vault.find_duplicate("Gmail", "alice", "https://gmail.com", "wrong") is None
+
+
+def test_find_duplicate_returns_none_when_title_differs(vault: Vault) -> None:
+    """Matching url/username/password but different title must return None."""
+    vault.add_entry("Gmail", "hunter2", username="alice", url="https://gmail.com")
+    assert vault.find_duplicate("Yahoo", "alice", "https://gmail.com", "hunter2") is None
+
+
+def test_find_duplicate_case_insensitive_on_title(vault: Vault) -> None:
+    """Title comparison must be case-insensitive after .strip().lower()."""
+    eid = vault.add_entry("Gmail", "hunter2")
+    assert vault.find_duplicate("gmail", None, None, "hunter2") == eid
+    assert vault.find_duplicate("GMAIL", None, None, "hunter2") == eid
+
+
+def test_find_duplicate_case_insensitive_on_url(vault: Vault) -> None:
+    """URL comparison must be case-insensitive after .strip().lower()."""
+    eid = vault.add_entry("Site", "pw", url="https://google.com")
+    assert vault.find_duplicate("Site", None, "HTTPS://GOOGLE.COM", "pw") == eid
+
+
+def test_find_duplicate_treats_none_and_empty_username_as_equal(vault: Vault) -> None:
+    """None and empty string must be treated as the same value for username/url."""
+    eid = vault.add_entry("Site", "pw", username=None, url=None)
+    # Both sides are None.
+    assert vault.find_duplicate("Site", None, None, "pw") == eid
+    # Empty string must compare equal to None.
+    assert vault.find_duplicate("Site", "", "", "pw") == eid
+
+
+def test_find_duplicate_password_case_sensitive(vault: Vault) -> None:
+    """Password comparison must be case-sensitive — 'abc' must not match 'ABC'."""
+    vault.add_entry("Site", "abc")
+    assert vault.find_duplicate("Site", None, None, "ABC") is None
+
+
+def test_find_duplicate_password_whitespace_sensitive(vault: Vault) -> None:
+    """Password comparison must be whitespace-sensitive — 'abc ' must not match 'abc'."""
+    vault.add_entry("Site", "abc")
+    assert vault.find_duplicate("Site", None, None, "abc ") is None

@@ -71,11 +71,23 @@ def run_csv_import(parent: QWidget, vault: Vault) -> int:
         )
         return 0
 
-    # 4. Persist to vault.
+    # 4. Persist to vault, skipping duplicates.
     added = 0
     failed = 0
-    for entry in result.entries:
+    dup_details: list[tuple[int, str]] = []  # (row_num, title) for report
+
+    # enumerate starting at 2 matches the importer's row numbering (row 1 = header).
+    for row_num, entry in enumerate(result.entries, start=2):
         try:
+            existing_id = vault.find_duplicate(
+                title=entry.title,
+                username=entry.username,
+                url=entry.url,
+                password=entry.password or "",
+            )
+            if existing_id is not None:
+                dup_details.append((row_num, entry.title))
+                continue
             vault.add_entry(
                 entry.title,
                 entry.password or "",
@@ -89,7 +101,7 @@ def run_csv_import(parent: QWidget, vault: Vault) -> int:
             failed += 1
 
     # 5. Result report.
-    _show_import_result(parent, added, result)
+    _show_import_result(parent, added, result, dup_details)
 
     # 6. Prompt to delete source — it still holds plaintext passwords.
     del_box = QMessageBox(parent)
@@ -112,14 +124,30 @@ def run_csv_import(parent: QWidget, vault: Vault) -> int:
     return added
 
 
-def _show_import_result(parent: QWidget, imported: int, result: ImportResult) -> None:
-    """Show a summary dialog; adds a scrollable error list when rows were skipped."""
-    if not result.errors:
-        QMessageBox.information(
-            parent,
-            "Import abgeschlossen",
-            f"{plural_entries(imported)} erfolgreich importiert.",
-        )
+def _show_import_result(
+    parent: QWidget,
+    imported: int,
+    result: ImportResult,
+    dup_details: list[tuple[int, str]],
+) -> None:
+    """Show a summary dialog with import counts and a scrollable detail list.
+
+    The detail list includes duplicate entries and parse errors.
+    Shown as a simple QMessageBox when there is nothing to list.
+    """
+    dups_count = len(dup_details)
+    errors_count = len(result.errors)
+
+    parts = [f"{plural_entries(imported)} importiert"]
+    if dups_count > 0:
+        dup_word = "Duplikat" if dups_count == 1 else "Duplikate"
+        parts.append(f"{dups_count} {dup_word} übersprungen")
+    if errors_count > 0:
+        parts.append(f"{errors_count} Fehler")
+    summary = ", ".join(parts)
+
+    if dups_count == 0 and errors_count == 0:
+        QMessageBox.information(parent, "Import abgeschlossen", f"{summary}.")
         return
 
     dlg = QDialog(parent)
@@ -129,17 +157,18 @@ def _show_import_result(parent: QWidget, imported: int, result: ImportResult) ->
     vl = QVBoxLayout(dlg)
     vl.setSpacing(8)
 
-    vl.addWidget(QLabel(
-        f"{plural_entries(imported)} importiert, {len(result.errors)} übersprungen:"
-    ))
+    vl.addWidget(QLabel(f"{summary}:"))
 
-    error_edit = QTextEdit()
-    error_edit.setReadOnly(True)
-    error_edit.setMaximumHeight(160)
-    error_edit.setPlainText(
-        "\n".join(f"Zeile {e.row_number}: {e.reason}" for e in result.errors)
-    )
-    vl.addWidget(error_edit)
+    lines: list[str] = [
+        f"Zeile {row}: Duplikat (Titel: {title})" for row, title in dup_details
+    ] + [
+        f"Zeile {e.row_number}: {e.reason}" for e in result.errors
+    ]
+    detail_edit = QTextEdit()
+    detail_edit.setReadOnly(True)
+    detail_edit.setMaximumHeight(160)
+    detail_edit.setPlainText("\n".join(lines))
+    vl.addWidget(detail_edit)
 
     ok_btn = QPushButton("OK")
     ok_btn.setObjectName("primary")

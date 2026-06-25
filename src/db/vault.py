@@ -318,6 +318,42 @@ class Vault:
         )
         conn.commit()
 
+    def find_duplicate(
+        self,
+        title: str,
+        username: str | None,
+        url: str | None,
+        password: str,
+    ) -> int | None:
+        """Return the id of an existing entry that matches all four fields, or None.
+
+        Comparison rules:
+          title / username / url — stripped and lowercased; None is treated as "".
+          password               — exact match, never stripped or lowercased.
+
+        Optimized: pre-filters on title/username/url without decryption, then
+        decrypts passwords only for the small set of remaining candidates.
+        """
+        norm_title    = title.strip().lower()
+        norm_username = (username or "").strip().lower()
+        norm_url      = (url or "").strip().lower()
+
+        # Cheap pre-filter: compare metadata fields without any crypto.
+        candidates = [
+            e for e in self.list_entries()
+            if (e.title or "").strip().lower() == norm_title
+            and (e.username or "").strip().lower() == norm_username
+            and (e.url or "").strip().lower() == norm_url
+        ]
+
+        # Expensive check: decrypt password only for the candidate entries.
+        for candidate in candidates:
+            full = self.get_entry(candidate.id)
+            if full is not None and full.password == password:
+                return candidate.id
+
+        return None
+
     def search_entries(self, query: str, *, sort: str = "title_asc") -> list[Entry]:
         """Case-insensitive substring search over title and username.
 
