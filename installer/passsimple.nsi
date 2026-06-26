@@ -5,7 +5,7 @@
 Unicode True
 
 !define PRODUCT_NAME      "PassSimple"
-!define PRODUCT_VERSION   "0.1.0"
+!define PRODUCT_VERSION   "0.2.0"
 !define PRODUCT_PUBLISHER "Luca"
 !define UNINST_KEY        "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
 !define AUTORUN_KEY       "Software\Microsoft\Windows\CurrentVersion\Run"
