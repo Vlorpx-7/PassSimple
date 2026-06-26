@@ -47,7 +47,17 @@ def relative_time(iso_timestamp: str) -> str:
 
 
 def get_git_short_hash() -> str:
-    """Return the current git short commit hash, or 'unbekannt' on failure."""
+    """Return the short commit hash for the running build.
+
+    Resolution order:
+      1. src._build_info.COMMIT_HASH — injected by build.ps1 at bundle time.
+      2. subprocess git rev-parse   — works in a dev checkout with git present.
+      3. 'unbekannt'                — fallback when neither source is available.
+    """
+    from src._build_info import COMMIT_HASH
+
+    if COMMIT_HASH != "dev":
+        return COMMIT_HASH
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
@@ -60,3 +70,17 @@ def get_git_short_hash() -> str:
     except Exception:
         pass
     return "unbekannt"
+
+
+def get_build_date() -> str:
+    """Return the build date as 'YYYY-MM-DD'.
+
+    Resolution order:
+      1. src._build_info.BUILD_DATE — injected by build.ps1 at bundle time.
+      2. datetime.now()             — current date in dev mode.
+    """
+    from src._build_info import BUILD_DATE
+
+    if BUILD_DATE:
+        return BUILD_DATE
+    return datetime.now(timezone.utc).date().isoformat()

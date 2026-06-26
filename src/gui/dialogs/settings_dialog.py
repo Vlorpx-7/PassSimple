@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-
 from PySide6.QtCore import Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
@@ -23,7 +21,7 @@ from PySide6.QtWidgets import (
 from src import __version__
 from src.db import Vault
 from src.gui.title_bar import apply_title_bar
-from src.gui.utils import get_git_short_hash
+from src.gui.utils import get_build_date, get_git_short_hash
 
 
 class SettingsDialog(QDialog):
@@ -111,7 +109,7 @@ class SettingsDialog(QDialog):
         vl.addWidget(title_lbl)
 
         git_hash = get_git_short_hash()
-        build_date = datetime.now().strftime("%Y-%m-%d")
+        build_date = get_build_date()
         vl.addWidget(QLabel(f"Version {__version__} ({git_hash}) · {build_date}"))
         vl.addWidget(QLabel("Lokaler Passwortmanager mit DPAPI-Verschlüsselung"))
 
