@@ -19,6 +19,8 @@ a = Analysis(
         (os.path.join(project_root, "assets", "icon.ico"), "assets"),
         (os.path.join(project_root, "src", "gui", "styles_dark.qss"), os.path.join("src", "gui")),
         (os.path.join(project_root, "src", "gui", "styles_light.qss"), os.path.join("src", "gui")),
+        (os.path.join(project_root, "src", "translations", "de.json"), os.path.join("src", "translations")),
+        (os.path.join(project_root, "src", "translations", "en.json"), os.path.join("src", "translations")),
     ],
     hiddenimports=[
         # pywin32 — DPAPI and Windows APIs

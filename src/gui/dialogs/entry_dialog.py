@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 
 from src.gui.dialogs.password_generator_dialog import PasswordGeneratorDialog
 from src.gui.title_bar import apply_title_bar
+from src.i18n import tr
 from src.models import Entry, Tag
 
 
@@ -31,7 +32,9 @@ class EntryDialog(QDialog):
         # Properties and get_entry() read from here, never from the cleared widget.
         self._final_password: str = ""
 
-        self.setWindowTitle("Eintrag bearbeiten" if entry is not None else "Neuer Eintrag")
+        self.setWindowTitle(
+            tr("entry.dialog_title_edit") if entry is not None else tr("entry.dialog_title_new")
+        )
         self.setMinimumWidth(500)
 
         self._init_ui()
@@ -56,25 +59,25 @@ class EntryDialog(QDialog):
         form.setSpacing(8)
 
         self._title_edit = QLineEdit()
-        self._title_edit.setPlaceholderText("Pflichtfeld")
-        form.addRow("Titel:", self._title_edit)
+        self._title_edit.setPlaceholderText(tr("entry.placeholder.title"))
+        form.addRow(tr("entry.field.title") + ":", self._title_edit)
 
         self._url_edit = QLineEdit()
-        self._url_edit.setPlaceholderText("https://…")
-        form.addRow("URL:", self._url_edit)
+        self._url_edit.setPlaceholderText(tr("entry.placeholder.url"))
+        form.addRow(tr("entry.field.url") + ":", self._url_edit)
 
         self._username_edit = QLineEdit()
-        form.addRow("Username:", self._username_edit)
+        form.addRow(tr("entry.field.username") + ":", self._username_edit)
 
-        form.addRow("Passwort:", self._build_password_row())
+        form.addRow(tr("entry.field.password") + ":", self._build_password_row())
 
         self._notes_edit = QTextEdit()
         self._notes_edit.setMaximumHeight(80)
-        form.addRow("Notizen:", self._notes_edit)
+        form.addRow(tr("entry.field.notes") + ":", self._notes_edit)
 
         self._tags_edit = QLineEdit()
-        self._tags_edit.setPlaceholderText("work, dev, personal")
-        form.addRow("Tags:", self._tags_edit)
+        self._tags_edit.setPlaceholderText(tr("entry.placeholder.tags"))
+        form.addRow(tr("entry.field.tags") + ":", self._tags_edit)
 
         layout.addLayout(form)
 
@@ -97,16 +100,16 @@ class EntryDialog(QDialog):
         self._password_edit.setEchoMode(QLineEdit.Password)
         hl.addWidget(self._password_edit, 1)
 
-        self._eye_btn = QPushButton("Anzeigen")
+        self._eye_btn = QPushButton(tr("entry.button.show"))
         self._eye_btn.setCheckable(True)
         self._eye_btn.setFixedWidth(80)
-        self._eye_btn.setToolTip("Passwort anzeigen / verbergen")
+        self._eye_btn.setToolTip(tr("entry.button.show_hide_tooltip"))
         self._eye_btn.toggled.connect(self._on_eye_toggled)
         hl.addWidget(self._eye_btn)
 
-        gen_btn = QPushButton("Generieren")
+        gen_btn = QPushButton(tr("entry.button.generate"))
         gen_btn.setFixedWidth(90)
-        gen_btn.setToolTip("Sicheres Passwort generieren")
+        gen_btn.setToolTip(tr("entry.button.generate_tooltip"))
         gen_btn.clicked.connect(self._on_generate)
         hl.addWidget(gen_btn)
 
@@ -129,10 +132,10 @@ class EntryDialog(QDialog):
         """Toggle the password field between masked and visible."""
         if checked:
             self._password_edit.setEchoMode(QLineEdit.Normal)
-            self._eye_btn.setText("Verbergen")
+            self._eye_btn.setText(tr("entry.button.hide"))
         else:
             self._password_edit.setEchoMode(QLineEdit.Password)
-            self._eye_btn.setText("Anzeigen")
+            self._eye_btn.setText(tr("entry.button.show"))
 
     def _on_generate(self) -> None:
         """Open the password generator sub-dialog and apply the result."""
@@ -147,10 +150,18 @@ class EntryDialog(QDialog):
     def accept(self) -> None:
         """Validate required fields; if OK, snapshot the password and close."""
         if not self._title_edit.text().strip():
-            QMessageBox.warning(self, "Eingabe fehlt", "Titel darf nicht leer sein.")
+            QMessageBox.warning(
+                self,
+                tr("entry.validation.missing_title"),
+                tr("entry.validation.missing_title_text"),
+            )
             return
         if not self._password_edit.text():
-            QMessageBox.warning(self, "Eingabe fehlt", "Passwort darf nicht leer sein.")
+            QMessageBox.warning(
+                self,
+                tr("entry.validation.missing_password"),
+                tr("entry.validation.missing_password_text"),
+            )
             return
 
         # Read before clearing — password must not stay in the widget longer than needed.

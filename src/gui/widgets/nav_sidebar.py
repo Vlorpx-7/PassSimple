@@ -5,7 +5,6 @@ from __future__ import annotations
 from PySide6.QtCore import QSize, Signal, Qt
 from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import (
-    QButtonGroup,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -14,6 +13,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from src.i18n import tr
 from src.paths import resource_path
 
 
@@ -31,7 +31,7 @@ class NavSidebar(QWidget):
     nav_changed = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        """Build the sidebar layout and select 'Alle Einträge' by default."""
+        """Build the sidebar layout and select 'All Entries' by default."""
         super().__init__(parent)
         self.setObjectName("navSidebar")
         self.setFixedWidth(190)
@@ -52,14 +52,24 @@ class NavSidebar(QWidget):
         layout.setSpacing(0)
 
         layout.addLayout(self._build_header())
-        layout.addWidget(self._build_section_label("Tresor"))
-        layout.addWidget(self._make_nav_btn("Alle Einträge", "all", checkable=True))
-        layout.addWidget(self._make_nav_btn("Favoriten", "favorites", checkable=True))
-        layout.addWidget(self._make_nav_btn("Import", "import", checkable=False))
+
+        self._section_label = self._build_section_label(tr("nav.section_vault"))
+        layout.addWidget(self._section_label)
+
+        self._btn_all = self._make_nav_btn(tr("nav.all_entries"), "all", checkable=True)
+        layout.addWidget(self._btn_all)
+
+        self._btn_favorites = self._make_nav_btn(tr("nav.favorites"), "favorites", checkable=True)
+        layout.addWidget(self._btn_favorites)
+
+        self._btn_import = self._make_nav_btn(tr("nav.import"), "import", checkable=False)
+        layout.addWidget(self._btn_import)
+
         layout.addStretch()
-        settings_btn = self._make_nav_btn("Einstellungen", "settings", checkable=False)
-        settings_btn.setToolTip("Einstellungen öffnen")
-        layout.addWidget(settings_btn)
+
+        self._btn_settings = self._make_nav_btn(tr("nav.settings"), "settings", checkable=False)
+        self._btn_settings.setToolTip(tr("nav.settings_tooltip"))
+        layout.addWidget(self._btn_settings)
 
     def _build_header(self) -> QHBoxLayout:
         """App icon (32×32) + bold 'PassSimple' title label."""
@@ -96,12 +106,20 @@ class NavSidebar(QWidget):
         btn.setCheckable(checkable)
         if checkable:
             btn.setAutoExclusive(True)
-            # Store reference so __init__ can call setChecked on it.
-            if value == "all":
-                self._btn_all = btn
-            elif value == "favorites":
-                self._btn_favorites = btn
             btn.clicked.connect(lambda _checked, v=value: self.nav_changed.emit(v))
         else:
             btn.clicked.connect(lambda: self.nav_changed.emit(value))
         return btn
+
+    # -----------------------------------------------------------------------
+    # Live retranslation
+    # -----------------------------------------------------------------------
+
+    def retranslate(self) -> None:
+        """Update all visible strings after a language change."""
+        self._section_label.setText(tr("nav.section_vault").upper())
+        self._btn_all.setText(tr("nav.all_entries"))
+        self._btn_favorites.setText(tr("nav.favorites"))
+        self._btn_import.setText(tr("nav.import"))
+        self._btn_settings.setText(tr("nav.settings"))
+        self._btn_settings.setToolTip(tr("nav.settings_tooltip"))

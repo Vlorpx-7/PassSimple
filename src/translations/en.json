@@ -1,0 +1,165 @@
+{
+  "app": {
+    "name": "PassSimple",
+    "loading": "Loading…"
+  },
+  "nav": {
+    "section_vault": "VAULT",
+    "all_entries": "All Entries",
+    "favorites": "Favorites",
+    "import": "Import",
+    "settings": "Settings",
+    "settings_tooltip": "Open settings"
+  },
+  "entry": {
+    "field": {
+      "title": "Title",
+      "url": "URL",
+      "username": "Username",
+      "password": "Password",
+      "notes": "Notes",
+      "tags": "Tags"
+    },
+    "placeholder": {
+      "title": "Required",
+      "url": "https://…",
+      "tags": "work, dev, personal",
+      "search": "Search…"
+    },
+    "button": {
+      "new": "+ New Entry",
+      "new_tooltip": "Create new entry (Ctrl+N)",
+      "edit": "Edit",
+      "edit_tooltip": "Edit entry",
+      "delete": "Delete",
+      "delete_tooltip": "Delete entry",
+      "show": "Show",
+      "hide": "Hide",
+      "show_hide_tooltip": "Show / hide password",
+      "copy": "Copy",
+      "copy_tooltip": "Copy password to clipboard (auto-cleared after 30 s)",
+      "generate": "Generate",
+      "generate_tooltip": "Generate a secure password",
+      "favorite_tooltip": "Mark as favorite"
+    },
+    "empty": {
+      "select": "Select an entry from the list",
+      "hint": "or create a new one with + New Entry"
+    },
+    "singular": "entry",
+    "plural": "entries",
+    "dialog_title_new": "New Entry",
+    "dialog_title_edit": "Edit Entry",
+    "delete_confirm": {
+      "title": "Delete entry",
+      "text": "Really delete this entry? This action cannot be undone."
+    },
+    "validation": {
+      "missing_title": "Input required",
+      "missing_title_text": "Title must not be empty.",
+      "missing_password": "Input required",
+      "missing_password_text": "Password must not be empty."
+    }
+  },
+  "list": {
+    "sort_label": "Sort:",
+    "sort": {
+      "title_asc": "Title A–Z",
+      "title_desc": "Title Z–A",
+      "updated_desc": "Last modified",
+      "created_desc": "Last created"
+    },
+    "empty_default": "No entries found",
+    "empty_all": "No entries yet.",
+    "empty_favorites": "No favorites yet. Star an entry to see it here."
+  },
+  "status": {
+    "ready": "Ready",
+    "clipboard_copied": "Copied to clipboard — will be cleared in 30 s",
+    "clipboard_cleared": "Clipboard cleared",
+    "vault_reset": "Vault reset — new DPAPI key active.",
+    "imported": "{count} imported."
+  },
+  "tray": {
+    "open": "Open",
+    "quit": "Quit",
+    "hint_title": "PassSimple is running in the background",
+    "hint_text": "Click the tray icon to open it."
+  },
+  "settings": {
+    "title": "Settings",
+    "close": "Close",
+    "appearance": "Appearance",
+    "language": "Language:",
+    "language_de": "Deutsch",
+    "language_en": "English",
+    "theme": "Theme:",
+    "theme_dark": "Dark",
+    "theme_light": "Light",
+    "about": "About",
+    "about_description": "Local password manager with DPAPI encryption",
+    "about_hotkey": "Global hotkey: Ctrl+Alt+P",
+    "about_hotkey_tooltip": "Opens quick search from anywhere",
+    "vault_location": "Vault location:",
+    "danger": "Danger zone",
+    "reset_vault": "Reset vault",
+    "reset_vault_tooltip": "Delete all entries and rotate the DPAPI key",
+    "reset_vault_title": "Reset vault",
+    "reset_vault_text": "All entries will be deleted and the DPAPI key regenerated.\nThis action cannot be undone.\n\nAre you sure?"
+  },
+  "generator": {
+    "title": "Generate password",
+    "length": "Length:",
+    "lowercase": "Lowercase  (a–z)",
+    "uppercase": "Uppercase  (A–Z)",
+    "digits": "Digits  (0–9)",
+    "symbols": "Symbols  (!@#…)",
+    "no_ambiguous": "Exclude ambiguous characters  (0/O/l/1/|…)",
+    "regenerate": "Regenerate",
+    "regenerate_tooltip": "Suggest a different password",
+    "entropy": "Entropy: ~{bits} bit",
+    "error_title": "Error"
+  },
+  "import": {
+    "warn_title": "Security notice",
+    "warn_text": "Warning: the CSV file contains plaintext passwords.\nPlease delete the file securely after importing.",
+    "file_dialog_title": "Select CSV file",
+    "file_filter": "CSV files (*.csv);;All files (*)",
+    "error_title": "Import error",
+    "empty_result": "No entries imported. {errors} error(s).",
+    "done_title": "Import complete",
+    "delete_source_title": "Delete source file?",
+    "delete_source_text": "The source file still contains plaintext passwords.\nDelete it now?\n\n{path}",
+    "delete_failed_title": "Delete failed",
+    "result_duplicate_line": "Row {row}: duplicate (title: {title})",
+    "result_error_line": "Row {row}: {reason}",
+    "result_duplicate_singular": "duplicate",
+    "result_duplicate_plural": "duplicates",
+    "result_imported": "{count} imported",
+    "result_skipped": "{count} {word} skipped",
+    "result_errors": "{count} error(s)"
+  },
+  "quicksearch": {
+    "placeholder": "Search or create new entry…",
+    "copy_password": "Copy password"
+  },
+  "time": {
+    "just_now": "just now",
+    "seconds_ago_one": "{n} second ago",
+    "seconds_ago_other": "{n} seconds ago",
+    "minutes_ago_one": "{n} minute ago",
+    "minutes_ago_other": "{n} minutes ago",
+    "hours_ago_one": "{n} hour ago",
+    "hours_ago_other": "{n} hours ago",
+    "days_ago_one": "{n} day ago",
+    "days_ago_other": "{n} days ago",
+    "months_ago_one": "{n} month ago",
+    "months_ago_other": "{n} months ago",
+    "years_ago_one": "{n} year ago",
+    "years_ago_other": "{n} years ago"
+  },
+  "error": {
+    "title": "Error",
+    "vault_decrypt": "Could not decrypt the vault.\nIt may have been created under a different Windows account."
+  }
+}

@@ -20,14 +20,15 @@ from PySide6.QtWidgets import (
 from src import crypto
 from src.db import Vault
 from src.gui.csv_import_flow import run_csv_import
-from src.gui.utils import plural_entries
 from src.gui.dialogs import EntryDialog, SettingsDialog
+from src.gui.title_bar import apply_title_bar, set_current_theme
+from src.gui.utils import plural_entries
 from src.gui.widgets.entry_detail_pane import EntryDetailPane
 from src.gui.widgets.entry_list_pane import EntryListPane
-from src.gui.title_bar import apply_title_bar, set_current_theme
+from src.gui.widgets.nav_sidebar import NavSidebar
 from src.gui.quick_search import QuickSearchPopup
 from src.gui.tray import AppTray
-from src.gui.widgets.nav_sidebar import NavSidebar
+from src.i18n import Translator, tr
 from src.paths import resource_path
 
 
@@ -114,7 +115,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self._detail_pane, 1)
 
         self._wire_signals()
-        self.statusBar().showMessage("Bereit")
+        self.statusBar().showMessage(tr("status.ready"))
 
     def _wire_signals(self) -> None:
         """Connect all inter-widget signals."""
@@ -148,6 +149,29 @@ class MainWindow(QMainWindow):
         set_current_theme(theme)
         self._load_stylesheet()
         apply_title_bar(self)
+
+    def apply_language(self, lang: str) -> None:
+        """Switch UI language, persist the choice, and retranslate all live widgets."""
+        Translator.instance().set_language(lang)
+        self._vault.set_meta("language", lang.encode())
+        self._retranslate_ui()
+
+    def _retranslate_ui(self) -> None:
+        """Push updated strings to every persistent widget after a language change."""
+        self._nav.retranslate()
+        self._list_pane.retranslate()
+        self._detail_pane.retranslate()
+        self._tray.retranslate()
+
+        # Re-apply the context-specific empty message for the list pane.
+        if self._current_filter == "favorites":
+            self._list_pane.set_empty_message(tr("list.empty_favorites"))
+        else:
+            self._list_pane.set_empty_message(tr("list.empty_all"))
+
+        # Retranslate the quick-search popup if it is currently visible.
+        if self._quick_search is not None and self._quick_search.isVisible():
+            self._quick_search.retranslate()
 
     def showEvent(self, event: object) -> None:
         """Apply the title bar style once the native window handle exists."""
@@ -195,8 +219,8 @@ class MainWindow(QMainWindow):
             self._hint_shown = True
             self._vault.set_meta("tray_hint_shown", b"1")
             self._tray.showMessage(
-                "PassSimple läuft im Hintergrund",
-                "Klicke das Tray-Icon zum Öffnen.",
+                tr("tray.hint_title"),
+                tr("tray.hint_text"),
                 self._tray.MessageIcon.Information,
                 3000,
             )
@@ -234,7 +258,7 @@ class MainWindow(QMainWindow):
             else:
                 entries = self._vault.list_entries(sort=self._current_sort)
         except Exception as e:
-            QMessageBox.critical(self, "Fehler", str(e))
+            QMessageBox.critical(self, tr("error.title"), str(e))
             return
 
         self._list_pane.set_entries(entries)
@@ -260,12 +284,9 @@ class MainWindow(QMainWindow):
             self._detail_pane.clear()
 
             if value == "all":
-                self._list_pane.set_empty_message("Keine Einträge vorhanden.")
+                self._list_pane.set_empty_message(tr("list.empty_all"))
             else:
-                self._list_pane.set_empty_message(
-                    "Noch keine Favoriten. Markiere einen Eintrag mit dem Stern, "
-                    "um ihn hier zu sehen."
-                )
+                self._list_pane.set_empty_message(tr("list.empty_favorites"))
 
             self._load_current_filter()
 
@@ -291,7 +312,7 @@ class MainWindow(QMainWindow):
         try:
             entry = self._vault.get_entry(entry_id)
         except Exception as e:
-            QMessageBox.critical(self, "Fehler", str(e))
+            QMessageBox.critical(self, tr("error.title"), str(e))
             return
         if entry is None:
             self._detail_pane.clear()
@@ -314,7 +335,7 @@ class MainWindow(QMainWindow):
             else:
                 entries = self._vault.list_entries(sort=self._current_sort)
         except Exception as e:
-            QMessageBox.critical(self, "Fehler", str(e))
+            QMessageBox.critical(self, tr("error.title"), str(e))
             return
 
         self._list_pane.set_entries(entries)
@@ -341,7 +362,7 @@ class MainWindow(QMainWindow):
                 tag_names=[t.name for t in data.tags] if data.tags else None,
             )
         except Exception as e:
-            QMessageBox.critical(self, "Fehler", str(e))
+            QMessageBox.critical(self, tr("error.title"), str(e))
             return
         self._current_entry_id = entry_id
         self._load_current_filter(select_id=entry_id)
@@ -351,7 +372,7 @@ class MainWindow(QMainWindow):
         try:
             current = self._vault.get_entry(entry_id)
         except Exception as e:
-            QMessageBox.critical(self, "Fehler", str(e))
+            QMessageBox.critical(self, tr("error.title"), str(e))
             return
         if current is None:
             return
@@ -368,7 +389,7 @@ class MainWindow(QMainWindow):
         try:
             self._vault.update_entry(data, new_password=data.password)
         except Exception as e:
-            QMessageBox.critical(self, "Fehler", str(e))
+            QMessageBox.critical(self, tr("error.title"), str(e))
             return
         self._current_entry_id = current.id
         self._load_current_filter(select_id=current.id)
@@ -377,8 +398,8 @@ class MainWindow(QMainWindow):
         """Ask for confirmation, then permanently delete the entry."""
         del_box = QMessageBox(self)
         del_box.setIcon(QMessageBox.Question)
-        del_box.setWindowTitle("Eintrag loeschen")
-        del_box.setText("Eintrag wirklich loeschen? Diese Aktion kann nicht rueckgaengig gemacht werden.")
+        del_box.setWindowTitle(tr("entry.delete_confirm.title"))
+        del_box.setText(tr("entry.delete_confirm.text"))
         del_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
         del_box.setDefaultButton(QMessageBox.No)
         apply_title_bar(del_box)
@@ -387,7 +408,7 @@ class MainWindow(QMainWindow):
         try:
             self._vault.delete_entry(entry_id)
         except Exception as e:
-            QMessageBox.critical(self, "Fehler", str(e))
+            QMessageBox.critical(self, tr("error.title"), str(e))
             return
         self._current_entry_id = None
         self._detail_pane.clear()
@@ -402,7 +423,7 @@ class MainWindow(QMainWindow):
         try:
             self._vault.set_favorite(entry_id, is_favorite)
         except Exception as e:
-            QMessageBox.critical(self, "Fehler", str(e))
+            QMessageBox.critical(self, tr("error.title"), str(e))
             return
         self._load_current_filter(select_id=entry_id)
 
@@ -415,17 +436,20 @@ class MainWindow(QMainWindow):
         added = run_csv_import(self, self._vault)
         if added > 0:
             self._load_current_filter()
-            self.statusBar().showMessage(f"{plural_entries(added)} importiert.")
+            self.statusBar().showMessage(
+                tr("status.imported").format(count=plural_entries(added))
+            )
 
     # -----------------------------------------------------------------------
     # Settings dialog + vault reset
     # -----------------------------------------------------------------------
 
     def _on_settings(self) -> None:
-        """Open the settings dialog, wire vault reset and live theme signals."""
+        """Open the settings dialog, wire vault reset, theme, and language signals."""
         dlg = SettingsDialog(vault=self._vault, parent=self)
         dlg.vault_reset_requested.connect(self._on_vault_reset_requested)
         dlg.theme_changed.connect(self.apply_theme)
+        dlg.language_changed.connect(self.apply_language)
         dlg.exec()
 
     def _on_vault_reset_requested(self) -> None:
@@ -441,14 +465,14 @@ class MainWindow(QMainWindow):
             for entry in self._vault.list_entries():
                 self._vault.delete_entry(entry.id)
         except Exception as e:
-            QMessageBox.critical(self, "Fehler", str(e))
+            QMessageBox.critical(self, tr("error.title"), str(e))
             return
 
         try:
             new_key = crypto.generate_master_key()
             new_blob = crypto.protect_master_key(new_key)
         except Exception as e:
-            QMessageBox.critical(self, "Fehler", str(e))
+            QMessageBox.critical(self, tr("error.title"), str(e))
             return
 
         # Close the vault before opening a second connection to the same file.
@@ -465,17 +489,17 @@ class MainWindow(QMainWindow):
             finally:
                 conn.close()
         except Exception as e:
-            QMessageBox.critical(self, "Fehler", str(e))
+            QMessageBox.critical(self, tr("error.title"), str(e))
             return
 
         try:
             self._vault.open(new_key, path=db_path)
         except Exception as e:
-            QMessageBox.critical(self, "Fehler", str(e))
+            QMessageBox.critical(self, tr("error.title"), str(e))
             return
 
         self._master_key = new_key
         self._current_entry_id = None
         self._detail_pane.clear()
         self._load_current_filter()
-        self.statusBar().showMessage("Vault zurückgesetzt — neuer DPAPI-Schlüssel aktiv.")
+        self.statusBar().showMessage(tr("status.vault_reset"))

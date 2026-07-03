@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import QSplashScreen
 
+from src.i18n import tr
 from src.paths import resource_path
 
 _W, _H = 400, 300
@@ -76,4 +77,4 @@ def _draw_subtitle(painter: QPainter, title_bottom: int) -> None:
     font = QFont("Segoe UI Variable", 11)
     painter.setFont(font)
     painter.setPen(QColor("#a6adc8"))
-    painter.drawText(0, title_bottom + 6, _W, 24, Qt.AlignmentFlag.AlignHCenter, "Wird geladen…")
+    painter.drawText(0, title_bottom + 6, _W, 24, Qt.AlignmentFlag.AlignHCenter, tr("app.loading"))

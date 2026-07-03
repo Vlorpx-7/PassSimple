@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 
 from src.db import Vault
 from src.gui.dialogs.entry_dialog import EntryDialog
+from src.i18n import tr
 
 # Single-instance clipboard timer shared across all popup invocations.
 # Stored at module level so a new popup can cancel a previous popup's timer.
@@ -59,7 +60,7 @@ class QuickSearchPopup(QDialog):
         layout.setSpacing(8)
 
         self._search_edit = QLineEdit()
-        self._search_edit.setPlaceholderText("Suchen oder neuen Eintrag erstellen…")
+        self._search_edit.setPlaceholderText(tr("quicksearch.placeholder"))
         self._search_edit.textChanged.connect(self._refresh_list)
         # Enter in the search field copies the currently selected entry.
         self._search_edit.returnPressed.connect(self._on_copy_password)
@@ -74,17 +75,27 @@ class QuickSearchPopup(QDialog):
         btn_row = QHBoxLayout()
         btn_row.setSpacing(8)
 
-        self._copy_btn = QPushButton("Passwort kopieren")
+        self._copy_btn = QPushButton(tr("quicksearch.copy_password"))
         self._copy_btn.setObjectName("primary")
         self._copy_btn.setDefault(True)
         self._copy_btn.clicked.connect(self._on_copy_password)
         btn_row.addWidget(self._copy_btn)
 
-        new_btn = QPushButton("+ Neuer Eintrag")
-        new_btn.clicked.connect(self._on_new_entry)
-        btn_row.addWidget(new_btn)
+        self._new_btn = QPushButton(tr("entry.button.new"))
+        self._new_btn.clicked.connect(self._on_new_entry)
+        btn_row.addWidget(self._new_btn)
 
         layout.addLayout(btn_row)
+
+    # -----------------------------------------------------------------------
+    # Live retranslation
+    # -----------------------------------------------------------------------
+
+    def retranslate(self) -> None:
+        """Update all visible strings after a language change."""
+        self._search_edit.setPlaceholderText(tr("quicksearch.placeholder"))
+        self._copy_btn.setText(tr("quicksearch.copy_password"))
+        self._new_btn.setText(tr("entry.button.new"))
 
     # -----------------------------------------------------------------------
     # Qt event overrides

@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 from src.db import Vault
 from src.gui.title_bar import apply_title_bar
 from src.gui.utils import plural_entries
+from src.i18n import tr
 from src.importer import ImportResult, import_csv
 
 
@@ -33,11 +34,8 @@ def run_csv_import(parent: QWidget, vault: Vault) -> int:
     # 1. Warn about plaintext content.
     warn_box = QMessageBox(parent)
     warn_box.setIcon(QMessageBox.Warning)
-    warn_box.setWindowTitle("Sicherheitshinweis")
-    warn_box.setText(
-        "Achtung: Die CSV-Datei enthält Klartext-Passwörter.\n"
-        "Bitte die Datei nach dem Import sicher löschen."
-    )
+    warn_box.setWindowTitle(tr("import.warn_title"))
+    warn_box.setText(tr("import.warn_text"))
     warn_box.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
     warn_box.setDefaultButton(QMessageBox.Ok)
     apply_title_bar(warn_box)
@@ -47,9 +45,9 @@ def run_csv_import(parent: QWidget, vault: Vault) -> int:
     # 2. File picker.
     path_str, _ = QFileDialog.getOpenFileName(
         parent,
-        "CSV-Datei auswählen",
+        tr("import.file_dialog_title"),
         "",
-        "CSV-Dateien (*.csv);;Alle Dateien (*)",
+        tr("import.file_filter"),
     )
     if not path_str:
         return 0
@@ -60,14 +58,14 @@ def run_csv_import(parent: QWidget, vault: Vault) -> int:
     try:
         result: ImportResult = import_csv(csv_path)
     except Exception as e:
-        QMessageBox.critical(parent, "Importfehler", str(e))
+        QMessageBox.critical(parent, tr("import.error_title"), str(e))
         return 0
 
     if not result.entries:
         QMessageBox.information(
             parent,
-            "Import abgeschlossen",
-            f"Keine Einträge importiert. {len(result.errors)} Fehler.",
+            tr("import.done_title"),
+            tr("import.empty_result").format(errors=len(result.errors)),
         )
         return 0
 
@@ -106,12 +104,8 @@ def run_csv_import(parent: QWidget, vault: Vault) -> int:
     # 6. Prompt to delete source — it still holds plaintext passwords.
     del_box = QMessageBox(parent)
     del_box.setIcon(QMessageBox.Question)
-    del_box.setWindowTitle("Quelldatei löschen?")
-    del_box.setText(
-        "Die Quelldatei enthält noch immer Klartext-Passwörter.\n"
-        "Datei jetzt sicher löschen?\n\n"
-        f"{csv_path}"
-    )
+    del_box.setWindowTitle(tr("import.delete_source_title"))
+    del_box.setText(tr("import.delete_source_text").format(path=csv_path))
     del_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
     del_box.setDefaultButton(QMessageBox.Yes)
     apply_title_bar(del_box)
@@ -119,7 +113,7 @@ def run_csv_import(parent: QWidget, vault: Vault) -> int:
         try:
             csv_path.unlink()
         except OSError as e:
-            QMessageBox.warning(parent, "Löschen fehlgeschlagen", str(e))
+            QMessageBox.warning(parent, tr("import.delete_failed_title"), str(e))
 
     return added
 
@@ -138,20 +132,24 @@ def _show_import_result(
     dups_count = len(dup_details)
     errors_count = len(result.errors)
 
-    parts = [f"{plural_entries(imported)} importiert"]
+    parts = [tr("import.result_imported").format(count=plural_entries(imported))]
     if dups_count > 0:
-        dup_word = "Duplikat" if dups_count == 1 else "Duplikate"
-        parts.append(f"{dups_count} {dup_word} übersprungen")
+        dup_word = (
+            tr("import.result_duplicate_singular")
+            if dups_count == 1
+            else tr("import.result_duplicate_plural")
+        )
+        parts.append(tr("import.result_skipped").format(count=dups_count, word=dup_word))
     if errors_count > 0:
-        parts.append(f"{errors_count} Fehler")
+        parts.append(tr("import.result_errors").format(count=errors_count))
     summary = ", ".join(parts)
 
     if dups_count == 0 and errors_count == 0:
-        QMessageBox.information(parent, "Import abgeschlossen", f"{summary}.")
+        QMessageBox.information(parent, tr("import.done_title"), f"{summary}.")
         return
 
     dlg = QDialog(parent)
-    dlg.setWindowTitle("Import abgeschlossen")
+    dlg.setWindowTitle(tr("import.done_title"))
     apply_title_bar(dlg)
     dlg.setMinimumWidth(480)
     vl = QVBoxLayout(dlg)
@@ -160,9 +158,11 @@ def _show_import_result(
     vl.addWidget(QLabel(f"{summary}:"))
 
     lines: list[str] = [
-        f"Zeile {row}: Duplikat (Titel: {title})" for row, title in dup_details
+        tr("import.result_duplicate_line").format(row=row, title=title)
+        for row, title in dup_details
     ] + [
-        f"Zeile {e.row_number}: {e.reason}" for e in result.errors
+        tr("import.result_error_line").format(row=e.row_number, reason=e.reason)
+        for e in result.errors
     ]
     detail_edit = QTextEdit()
     detail_edit.setReadOnly(True)

@@ -7,14 +7,22 @@ from datetime import datetime, timezone
 
 
 def plural_entries(count: int) -> str:
-    """Return '1 Eintrag' or 'N Einträge'."""
-    return f"{count} Eintrag" if count == 1 else f"{count} Einträge"
+    """Return a localised count+noun string, e.g. '1 Eintrag' / '1 entry'."""
+    from src.i18n import tr
+    word = tr("entry.singular") if count == 1 else tr("entry.plural")
+    return f"{count} {word}"
+
+
+def _time_key(unit: str, n: int) -> str:
+    from src.i18n import tr
+    suffix = "one" if n == 1 else "other"
+    return tr(f"time.{unit}_ago_{suffix}").format(n=n)
 
 
 def relative_time(iso_timestamp: str) -> str:
-    """Convert an ISO 8601 timestamp to a German relative-time string.
+    """Convert an ISO 8601 timestamp to a localised relative-time string.
 
-    Returns strings like 'vor 3 Minuten', 'vor 1 Tag', 'vor 2 Jahren'.
+    Returns strings like '3 minutes ago' / 'vor 3 Minuten', 'just now', etc.
     Returns an empty string if the timestamp cannot be parsed.
     """
     try:
@@ -28,22 +36,21 @@ def relative_time(iso_timestamp: str) -> str:
     seconds = max(0, int(delta.total_seconds()))
 
     if seconds < 60:
-        n = seconds
-        return f"vor {n} Sekunde" if n == 1 else f"vor {n} Sekunden"
-    minutes = seconds // 60
-    if minutes < 60:
-        return f"vor {minutes} Minute" if minutes == 1 else f"vor {minutes} Minuten"
-    hours = minutes // 60
-    if hours < 24:
-        return f"vor {hours} Stunde" if hours == 1 else f"vor {hours} Stunden"
-    days = hours // 24
-    if days < 30:
-        return f"vor {days} Tag" if days == 1 else f"vor {days} Tagen"
-    months = days // 30
-    if months < 12:
-        return f"vor {months} Monat" if months == 1 else f"vor {months} Monaten"
-    years = days // 365
-    return f"vor {years} Jahr" if years == 1 else f"vor {years} Jahren"
+        return _time_key("seconds", seconds)
+    n = seconds // 60
+    if n < 60:
+        return _time_key("minutes", n)
+    n = n // 60
+    if n < 24:
+        return _time_key("hours", n)
+    n = n // 24
+    if n < 30:
+        return _time_key("days", n)
+    n = n // 30
+    if n < 12:
+        return _time_key("months", n)
+    n = seconds // (365 * 24 * 3600)
+    return _time_key("years", n)
 
 
 def get_git_short_hash() -> str:

@@ -19,19 +19,20 @@ from PySide6.QtWidgets import (
 
 from src.generator import _SYMBOLS, entropy_bits, generate_password
 from src.gui.title_bar import apply_title_bar
+from src.i18n import tr
 
 
 class PasswordGeneratorDialog(QDialog):
     """Sub-dialog for configuring and generating a password.
 
     Opens with a freshly generated password; the user can adjust settings and
-    click "Neu generieren" as many times as desired before accepting.
+    click "Regenerate" as many times as desired before accepting.
     """
 
     def __init__(self, parent: QWidget | None = None) -> None:
         """Initialise settings with safe defaults and immediately generate a first password."""
         super().__init__(parent)
-        self.setWindowTitle("Passwort generieren")
+        self.setWindowTitle(tr("generator.title"))
         self.setMinimumWidth(420)
         self._init_ui()
         self._generate()
@@ -52,17 +53,17 @@ class PasswordGeneratorDialog(QDialog):
         self._length_spin = QSpinBox()
         self._length_spin.setRange(16, 64)
         self._length_spin.setValue(20)
-        form.addRow("Länge:", self._length_spin)
+        form.addRow(tr("generator.length"), self._length_spin)
 
-        self._cb_lower = QCheckBox("Kleinbuchstaben  (a–z)")
+        self._cb_lower = QCheckBox(tr("generator.lowercase"))
         self._cb_lower.setChecked(True)
-        self._cb_upper = QCheckBox("Grossbuchstaben  (A–Z)")
+        self._cb_upper = QCheckBox(tr("generator.uppercase"))
         self._cb_upper.setChecked(True)
-        self._cb_digits = QCheckBox("Ziffern  (0–9)")
+        self._cb_digits = QCheckBox(tr("generator.digits"))
         self._cb_digits.setChecked(True)
-        self._cb_symbols = QCheckBox("Sonderzeichen  (!@#…)")
+        self._cb_symbols = QCheckBox(tr("generator.symbols"))
         self._cb_symbols.setChecked(True)
-        self._cb_no_ambiguous = QCheckBox("Mehrdeutige Zeichen ausschliessen  (0/O/l/1/|…)")
+        self._cb_no_ambiguous = QCheckBox(tr("generator.no_ambiguous"))
         self._cb_no_ambiguous.setChecked(False)
 
         for cb in (
@@ -84,8 +85,8 @@ class PasswordGeneratorDialog(QDialog):
         self._entropy_label = QLabel()
         layout.addWidget(self._entropy_label)
 
-        regen_btn = QPushButton("Neu generieren")
-        regen_btn.setToolTip("Anderes Passwort vorschlagen")
+        regen_btn = QPushButton(tr("generator.regenerate"))
+        regen_btn.setToolTip(tr("generator.regenerate_tooltip"))
         regen_btn.clicked.connect(self._generate)
         layout.addWidget(regen_btn)
 
@@ -109,14 +110,14 @@ class PasswordGeneratorDialog(QDialog):
                 exclude_ambiguous=self._cb_no_ambiguous.isChecked(),
             )
         except ValueError as exc:
-            QMessageBox.warning(self, "Fehler", str(exc))
+            QMessageBox.warning(self, tr("generator.error_title"), str(exc))
             return
 
         self._preview.setText(pw)
 
         alph = self._alphabet_size()
         bits = entropy_bits(len(pw), alph) if alph else 0.0
-        self._entropy_label.setText(f"Entropie: ~{bits:.0f} bit")
+        self._entropy_label.setText(tr("generator.entropy").format(bits=f"{bits:.0f}"))
 
     def _alphabet_size(self) -> int:
         """Count the effective alphabet size given the current settings."""

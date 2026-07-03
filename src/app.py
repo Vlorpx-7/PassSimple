@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 import sys
 
 from PySide6.QtCore import QTimer
@@ -13,6 +14,7 @@ from src.db import Vault
 from src.gui.main_window import MainWindow
 from src.gui.splash import create_splash
 from src.gui.title_bar import set_current_theme
+from src.i18n import Translator, tr
 from src.paths import resource_path
 
 
@@ -28,12 +30,26 @@ def main() -> int:
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))
 
+    db_path = Vault.default_path()
+
+    # Read the persisted language before showing the splash so the splash text
+    # renders in the correct language on first paint.
+    try:
+        conn = sqlite3.connect(str(db_path))
+        row = conn.execute(
+            "SELECT value FROM vault_meta WHERE key = 'language'"
+        ).fetchone()
+        conn.close()
+        if row:
+            lang = row[0].decode() if isinstance(row[0], bytes) else str(row[0])
+            Translator.instance().set_language(lang)
+    except Exception:
+        pass  # DB may not exist yet (first run); Translator defaults to "de"
+
     # Show splash before any vault work so the user sees something immediately.
     splash = create_splash()
     splash.show()
     app.processEvents()
-
-    db_path = Vault.default_path()
 
     try:
         initialize_vault_schema_if_needed(db_path)
@@ -44,12 +60,7 @@ def main() -> int:
         # The key is then unrecoverable by design: DPAPI user-scope binding
         # means that without the original account, the data is permanently sealed.
         splash.close()
-        QMessageBox.critical(
-            None,
-            "Fehler",
-            "Vault konnte nicht entschlüsselt werden.\n"
-            "Möglicherweise wurde er von einem anderen Benutzerkonto erstellt.",
-        )
+        QMessageBox.critical(None, tr("error.title"), tr("error.vault_decrypt"))
         return 1
 
     vault = Vault()
@@ -57,7 +68,7 @@ def main() -> int:
         vault.open(master_key, path=db_path)
     except Exception as e:
         splash.close()
-        QMessageBox.critical(None, "Fehler", str(e))
+        QMessageBox.critical(None, tr("error.title"), str(e))
         return 1
 
     # Seed the title-bar theme cache before any window or dialog is created.

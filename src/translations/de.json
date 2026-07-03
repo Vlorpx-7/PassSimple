@@ -1,0 +1,165 @@
+{
+  "app": {
+    "name": "PassSimple",
+    "loading": "Wird geladen…"
+  },
+  "nav": {
+    "section_vault": "TRESOR",
+    "all_entries": "Alle Einträge",
+    "favorites": "Favoriten",
+    "import": "Import",
+    "settings": "Einstellungen",
+    "settings_tooltip": "Einstellungen öffnen"
+  },
+  "entry": {
+    "field": {
+      "title": "Titel",
+      "url": "URL",
+      "username": "Username",
+      "password": "Passwort",
+      "notes": "Notizen",
+      "tags": "Tags"
+    },
+    "placeholder": {
+      "title": "Pflichtfeld",
+      "url": "https://…",
+      "tags": "work, dev, personal",
+      "search": "Suchen…"
+    },
+    "button": {
+      "new": "+ Neuer Eintrag",
+      "new_tooltip": "Neuen Eintrag erstellen (Strg+N)",
+      "edit": "Bearbeiten",
+      "edit_tooltip": "Eintrag bearbeiten",
+      "delete": "Löschen",
+      "delete_tooltip": "Eintrag löschen",
+      "show": "Anzeigen",
+      "hide": "Verbergen",
+      "show_hide_tooltip": "Passwort anzeigen / verbergen",
+      "copy": "Kopieren",
+      "copy_tooltip": "Passwort in Zwischenablage (30 s automatisches Löschen)",
+      "generate": "Generieren",
+      "generate_tooltip": "Sicheres Passwort generieren",
+      "favorite_tooltip": "Als Favorit markieren"
+    },
+    "empty": {
+      "select": "Wähle einen Eintrag aus der Liste",
+      "hint": "oder erstelle einen neuen mit + Neuer Eintrag"
+    },
+    "singular": "Eintrag",
+    "plural": "Einträge",
+    "dialog_title_new": "Neuer Eintrag",
+    "dialog_title_edit": "Eintrag bearbeiten",
+    "delete_confirm": {
+      "title": "Eintrag löschen",
+      "text": "Eintrag wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden."
+    },
+    "validation": {
+      "missing_title": "Eingabe fehlt",
+      "missing_title_text": "Titel darf nicht leer sein.",
+      "missing_password": "Eingabe fehlt",
+      "missing_password_text": "Passwort darf nicht leer sein."
+    }
+  },
+  "list": {
+    "sort_label": "Sortieren:",
+    "sort": {
+      "title_asc": "Titel A–Z",
+      "title_desc": "Titel Z–A",
+      "updated_desc": "Zuletzt geändert",
+      "created_desc": "Zuletzt erstellt"
+    },
+    "empty_default": "Keine Einträge gefunden",
+    "empty_all": "Keine Einträge vorhanden.",
+    "empty_favorites": "Noch keine Favoriten. Markiere einen Eintrag mit dem Stern, um ihn hier zu sehen."
+  },
+  "status": {
+    "ready": "Bereit",
+    "clipboard_copied": "In Zwischenablage kopiert — wird in 30 s gelöscht",
+    "clipboard_cleared": "Zwischenablage gelöscht",
+    "vault_reset": "Vault zurückgesetzt — neuer DPAPI-Schlüssel aktiv.",
+    "imported": "{count} importiert."
+  },
+  "tray": {
+    "open": "Öffnen",
+    "quit": "Beenden",
+    "hint_title": "PassSimple läuft im Hintergrund",
+    "hint_text": "Klicke das Tray-Icon zum Öffnen."
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "close": "Schliessen",
+    "appearance": "Erscheinungsbild",
+    "language": "Sprache:",
+    "language_de": "Deutsch",
+    "language_en": "Englisch",
+    "theme": "Theme:",
+    "theme_dark": "Dunkel",
+    "theme_light": "Hell",
+    "about": "Über",
+    "about_description": "Lokaler Passwortmanager mit DPAPI-Verschlüsselung",
+    "about_hotkey": "Global-Hotkey: Strg+Alt+P",
+    "about_hotkey_tooltip": "Öffnet Schnellsuche von überall",
+    "vault_location": "Vault-Speicherort:",
+    "danger": "Gefährliche Aktionen",
+    "reset_vault": "Vault zurücksetzen",
+    "reset_vault_tooltip": "Alle Einträge löschen und DPAPI-Schlüssel rotieren",
+    "reset_vault_title": "Vault zurücksetzen",
+    "reset_vault_text": "Alle Einträge werden gelöscht und der DPAPI-Schlüssel neu erzeugt.\nDiese Aktion kann nicht rückgängig gemacht werden.\n\nSicher?"
+  },
+  "generator": {
+    "title": "Passwort generieren",
+    "length": "Länge:",
+    "lowercase": "Kleinbuchstaben  (a–z)",
+    "uppercase": "Grossbuchstaben  (A–Z)",
+    "digits": "Ziffern  (0–9)",
+    "symbols": "Sonderzeichen  (!@#…)",
+    "no_ambiguous": "Mehrdeutige Zeichen ausschliessen  (0/O/l/1/|…)",
+    "regenerate": "Neu generieren",
+    "regenerate_tooltip": "Anderes Passwort vorschlagen",
+    "entropy": "Entropie: ~{bits} bit",
+    "error_title": "Fehler"
+  },
+  "import": {
+    "warn_title": "Sicherheitshinweis",
+    "warn_text": "Achtung: Die CSV-Datei enthält Klartext-Passwörter.\nBitte die Datei nach dem Import sicher löschen.",
+    "file_dialog_title": "CSV-Datei auswählen",
+    "file_filter": "CSV-Dateien (*.csv);;Alle Dateien (*)",
+    "error_title": "Importfehler",
+    "empty_result": "Keine Einträge importiert. {errors} Fehler.",
+    "done_title": "Import abgeschlossen",
+    "delete_source_title": "Quelldatei löschen?",
+    "delete_source_text": "Die Quelldatei enthält noch immer Klartext-Passwörter.\nDatei jetzt sicher löschen?\n\n{path}",
+    "delete_failed_title": "Löschen fehlgeschlagen",
+    "result_duplicate_line": "Zeile {row}: Duplikat (Titel: {title})",
+    "result_error_line": "Zeile {row}: {reason}",
+    "result_duplicate_singular": "Duplikat",
+    "result_duplicate_plural": "Duplikate",
+    "result_imported": "{count} importiert",
+    "result_skipped": "{count} {word} übersprungen",
+    "result_errors": "{count} Fehler"
+  },
+  "quicksearch": {
+    "placeholder": "Suchen oder neuen Eintrag erstellen…",
+    "copy_password": "Passwort kopieren"
+  },
+  "time": {
+    "just_now": "gerade eben",
+    "seconds_ago_one": "vor {n} Sekunde",
+    "seconds_ago_other": "vor {n} Sekunden",
+    "minutes_ago_one": "vor {n} Minute",
+    "minutes_ago_other": "vor {n} Minuten",
+    "hours_ago_one": "vor {n} Stunde",
+    "hours_ago_other": "vor {n} Stunden",
+    "days_ago_one": "vor {n} Tag",
+    "days_ago_other": "vor {n} Tagen",
+    "months_ago_one": "vor {n} Monat",
+    "months_ago_other": "vor {n} Monaten",
+    "years_ago_one": "vor {n} Jahr",
+    "years_ago_other": "vor {n} Jahren"
+  },
+  "error": {
+    "title": "Fehler",
+    "vault_decrypt": "Vault konnte nicht entschlüsselt werden.\nMöglicherweise wurde er von einem anderen Benutzerkonto erstellt."
+  }
+}

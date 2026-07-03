@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from src.gui.utils import relative_time
+from src.i18n import tr
 from src.models import Entry
 
 
@@ -64,7 +65,7 @@ class EntryListPane(QWidget):
         layout.addLayout(self._build_sort_row())
 
         self._search_edit = QLineEdit()
-        self._search_edit.setPlaceholderText("Suchen…")
+        self._search_edit.setPlaceholderText(tr("entry.placeholder.search"))
         self._search_edit.textChanged.connect(self.search_changed.emit)
         layout.addWidget(self._search_edit)
 
@@ -76,7 +77,7 @@ class EntryListPane(QWidget):
         self._list_widget.currentItemChanged.connect(self._on_item_changed)
         self._stack.addWidget(self._list_widget)
 
-        self._empty_label = QLabel("Keine Einträge gefunden")
+        self._empty_label = QLabel(tr("list.empty_default"))
         self._empty_label.setAlignment(Qt.AlignCenter)
         self._empty_label.setWordWrap(True)
         self._stack.addWidget(self._empty_label)
@@ -84,19 +85,19 @@ class EntryListPane(QWidget):
         layout.addWidget(self._stack, 1)
 
     def _build_sort_row(self) -> QHBoxLayout:
-        """Toolbar row with 'Sortieren:' label and sort combo box."""
+        """Toolbar row with sort label and sort combo box."""
         row = QHBoxLayout()
         row.setSpacing(6)
 
-        lbl = QLabel("Sortieren:")
-        lbl.setObjectName("sortLabel")
-        row.addWidget(lbl)
+        self._sort_label = QLabel(tr("list.sort_label"))
+        self._sort_label.setObjectName("sortLabel")
+        row.addWidget(self._sort_label)
 
         self._sort_combo = QComboBox()
-        self._sort_combo.addItem("Titel A–Z", userData="title_asc")
-        self._sort_combo.addItem("Titel Z–A", userData="title_desc")
-        self._sort_combo.addItem("Zuletzt geändert", userData="updated_desc")
-        self._sort_combo.addItem("Zuletzt erstellt", userData="created_desc")
+        self._sort_combo.addItem(tr("list.sort.title_asc"), userData="title_asc")
+        self._sort_combo.addItem(tr("list.sort.title_desc"), userData="title_desc")
+        self._sort_combo.addItem(tr("list.sort.updated_desc"), userData="updated_desc")
+        self._sort_combo.addItem(tr("list.sort.created_desc"), userData="created_desc")
         self._sort_combo.currentIndexChanged.connect(self._on_sort_changed)
         row.addWidget(self._sort_combo, 1)
 
@@ -150,6 +151,21 @@ class EntryListPane(QWidget):
                 self._list_widget.setCurrentItem(item)
                 return True
         return False
+
+    # -----------------------------------------------------------------------
+    # Live retranslation
+    # -----------------------------------------------------------------------
+
+    def retranslate(self) -> None:
+        """Update all visible strings after a language change."""
+        self._sort_label.setText(tr("list.sort_label"))
+        self._search_edit.setPlaceholderText(tr("entry.placeholder.search"))
+        self._sort_combo.setItemText(0, tr("list.sort.title_asc"))
+        self._sort_combo.setItemText(1, tr("list.sort.title_desc"))
+        self._sort_combo.setItemText(2, tr("list.sort.updated_desc"))
+        self._sort_combo.setItemText(3, tr("list.sort.created_desc"))
+        # The empty label text is context-dependent (all vs. favorites vs. search);
+        # MainWindow._retranslate_ui() sets it to the correct message after this call.
 
     # -----------------------------------------------------------------------
     # Helpers
